@@ -1,0 +1,6 @@
+init:
+	mkdir output
+
+convert:
+	magick mogrify -format png -auto-level ./output/*.ppm
+	del .\output\*.ppm > nul 2> null
