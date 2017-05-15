@@ -213,9 +213,9 @@ with open("./output/" + fname_base + ".ppm", "wb") as out:
             # 17.27875959425
             # 18.849555921
             write_pixel(
-                int(255 * math.sin(color * 3.141592) ** 2),
-                int(128 * math.sin(color * 9.4247779) ** 2),
-                int(255 * math.sin(color * 15.707963) ** 2),
+                int(255 * math.sin(color * 9) ** 2),
+                int(255 * math.sin(color * 10) ** 2),
+                int(255 * math.sin(color * 11) ** 2),
                 out
             )
     print("", end="\n")
