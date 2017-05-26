@@ -105,6 +105,8 @@ height     = max(int(input("graph height? (default 500): ") or 500), 1)
 iterations = max(int(input("iterations? (default 32):    ") or 32),  1)
 center     =         input("center? (default 0 0):       ") or "0 0"
 zoom       =         input("zoom?  (default 1):          ") or "1"
+colorscale = max(int(input("color scale?  (default 1):    ") or 1), 1)
+cutoff     = max(int(input("escape radius?  (default 30): ") or 30), 0)
 
 c = re.sub("\s", "", c)
 c = re.sub("i", "j", c)
@@ -178,44 +180,11 @@ with open("./output/" + fname_base + ".ppm", "wb") as out:
                     break
                 z_p = z
                 color += math.exp(-abs(z))
-            # circle of radius 256 centered around (256, 0)
-            # basically it makes the image brighter
-            # color = int(math.sqrt(
-                # 65536 - math.pow(256 * color / iterations - 256, 2)
-            # ))
-            # color = int(255 * color / iterations)
-            # color = (i + 1
-                # + math.log(
-                    # max(math.log(abs(z)), 1)
-                # ) / 0.693147
-            # ) / iterations
             color /= iterations
-            # print(color)
-            # pi/2 = 1.570796
-            # multiples of π:
-            # 3.1415926535
-            # 6.283185307
-            # 9.4247779605
-            # 12.566370614
-            # 15.7079632675
-            # 18.849555921
-            # multiples of π/2:
-            # 1.57079632675
-            # 3.1415926535
-            # 4.71238898025
-            # 6.283185307
-            # 7.85398163375
-            # 9.4247779605
-            # 10.99557428725
-            # 12.566370614
-            # 14.13716694075
-            # 15.7079632675
-            # 17.27875959425
-            # 18.849555921
             write_pixel(
-                int(255 * math.sin(color * 9) ** 2),
-                int(255 * math.sin(color * 10) ** 2),
-                int(255 * math.sin(color * 11) ** 2),
+                int(255 * math.sin(color * colorscale * 9) ** 2),
+                int(255 * math.sin(color * colorscale * 10) ** 2),
+                int(255 * math.sin(color * colorscale * 11) ** 2),
                 out
             )
     print("", end="\n")
