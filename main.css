@@ -1,0 +1,47 @@
+html, body {
+	font-family: "Segoe UI", -apple-system, "Helvetica", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Noto Sans",  "FreeSans", "Code2001", "Code2000", "DejaVu Sans",  sans-serif;
+	color: #222;
+	font-size: 18px;
+	margin: 0;
+	padding: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+	margin: 2em 0 1em 0;
+}
+
+h1 {
+	font-size: 28px;
+}
+
+h2 {
+	font-size: 18px;
+}
+
+p {
+	margin: 0 0 1em 0;
+}
+
+/* better underline with gradients */
+a, a:visited {
+	color: #226;
+	text-decoration: none;
+	position: relative;
+	background-image: linear-gradient(to bottom,rgba(0,0,0,0) 50%,rgba(34,34,102,0.8) 50%);
+	background-repeat: repeat-x;
+	background-size: 2px 0.1em;
+	background-position: 0 1.15em;
+}
+
+a:hover {
+	color: #b26;
+	background-image: linear-gradient(to bottom,rgba(0,0,0,0) 50%,rgba(187,34,102,0.8) 50%);
+}
+
+#container {
+	margin: 50px auto;
+	max-width: 600px;
+}
+
+@media (max-width: 650px) {
+}

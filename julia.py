@@ -56,13 +56,13 @@ def zeroscale(val, valmax, outmin, outmax):
 
 # screen coords to graph coords
 def stgX(x):
-    global graph, columnwidth
-    return scale(x % columnwidth, 0,
-        columnwidth, graph['x']['min'], graph['x']['max'])
+    global graph, colwidth
+    return zeroscale(x % colwidth, colwidth,
+            graph['x']['min'], graph['x']['max'])
 
 def stgY(y):
     global graph, rowheight
-    return scale(y % rowheight, 0, rowheight,
+    return zeroscale(y % rowheight, rowheight,
         graph['y']['max'], graph['y']['min'])
 
 def clamp(v, lo, hi):
@@ -142,8 +142,8 @@ if crange <= 0:
     cellcount = 1
 
 height = int(width / aspect)
-rowheight   = height / cellcount
-columnwidth = width  / cellcount
+rowheight = height / cellcount
+colwidth  = width  / cellcount
 
 cutoff = 30
 
@@ -171,6 +171,22 @@ graph['y']['c'] = (graph['y']['max'] + graph['y']['min']) / 2
 def write_pixel(r, g, b, f):
     f.write(bytes([r, g, b]))
 
+cgrid = [[0 for y in range(cellcount)] for x in range(cellcount)]
+#cgrid[x][y]
+yticks = [int((y + 1) * rowheight) for y in range(cellcount - 1)]
+xticks = [int((x + 1) * colwidth ) for x in range(cellcount - 1)]
+
+for row in range(cellcount):
+    localy = c.imag
+    if cellcount != 1:
+        localy += crange - 2 * crange * row / (cellcount - 1)
+
+    for col in range(cellcount):
+        localc = c.real
+        if cellcount != 1:
+            localc += 2 * crange * col / (cellcount - 1) - crange
+        cgrid[col][row] = localc + localy*1j
+
 # unix_time.ppm
 fname_base = str(int(time.time()))
 print("the time is " + fname_base)
@@ -180,7 +196,9 @@ with open("./info/" + fname_base + ".txt", "w", encoding="utf-8") as out:
         + "rendered area: ({}, {}i) to ({}, {}i)\n"
         + "zoom = {}×, gradient speed {}, escape radius {}"
         + "{} iterations\n"
-        + "c range = {:g}\n").format(
+        + "c range = {:g}\n"
+        + "col row, c = ...\n"
+        + "-------------------\n").format(
             orig_fn, #z_n
             printcomplex(c), #c
             graph['x']['min'], #render area
@@ -190,18 +208,13 @@ with open("./info/" + fname_base + ".txt", "w", encoding="utf-8") as out:
             zoom, colorscale, cutoff, iterations, crange #etc
         )
     )
-
-    for row in range(1, cellcount + 1):
-        localy = c.imag
-        if cellcount != 1:
-            localy += crange - 2 * crange * row / (cellcount - 1)
-
-        for column in range(1, cellcount + 1):
-            localc = c.real
-            if cellcount != 1:
-                localc += 2 * crange * column / (cellcount - 1) - crange
-            out.write(str(column) + " " + str(row) + " = " + str(localc)
-                + signstr(localy) + str(abs(localy)) + "i\n")
+    for row in range(cellcount):
+        for col in range(cellcount):
+            out.write("{} {}, c = {}\n".format(
+                col,
+                row,
+                cgrid[col][row]
+            ))
 
 with open("./output/" + fname_base + ".ppm", "wb") as out:
     out.write(bytes("P6\n{} {}\n255\n".format(width, height),
@@ -210,11 +223,9 @@ with open("./output/" + fname_base + ".ppm", "wb") as out:
     z_p: complex
     i: int
     color: float
-    graphx: float
-    row: int
-    column: int
-    localc: complex
-    localy: float
+    graphy: float
+    row: int = 0
+    col: int = 0
     start = datetime.now()
 
     for y in range(0, height):
@@ -237,25 +248,20 @@ with open("./output/" + fname_base + ".ppm", "wb") as out:
             )
             print("{: <76}".format(etastr), end="\r")
 
-        graphy = stgY(y % rowheight)
-        row = math.floor(y / rowheight)
-        localy = c.imag
-        if cellcount != 1:
-            localy += crange - 2 * crange * row / (cellcount - 1)
+        graphy = stgY(y) * 1j
+        if row != cellcount - 1 and y == yticks[row]:
+            row += 1
 
         for x in range(0, width):
-            column = math.floor(x / columnwidth)
-            localc = c.real + localy*1j
+            if col != cellcount - 1 and x == xticks[col]:
+                col += 1
 
-            if cellcount != 1:
-                localc += 2 * crange * column / (cellcount - 1) - crange
-
-            z_p = z = stgX(x % columnwidth) + graphy*1j
+            z_p = z = stgX(x) + graphy
             i = 0
             # smooth coloring using exponents????
             color = math.exp(-abs(z))
             for i in range(0, iterations):
-                z = eval_fn(z, localc)
+                z = eval_fn(z, cgrid[col][row])
                 if cmath.isnan(z) or not cmath.isfinite(z):
                     # oh no
                     z = 1
