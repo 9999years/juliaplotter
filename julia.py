@@ -12,6 +12,7 @@ import re
 import codecs
 # args? i actually might not need this
 import sys
+import argparse
 
 # why arent these in math in the first place?
 # we need them to make user formulae sensible
@@ -41,7 +42,7 @@ def eval_fn(z, c):
     except (ValueError, OverflowError, ZeroDivisionError):
         # negative number in a log or root probably
         # probably a user error
-        return float("nan")
+        return float('nan')
 
 # linear map val∈[valmin, valmax] |→ out∈[outmin, outmax]
 def scale(val, valmin, valmax, outmin, outmax):
@@ -71,75 +72,205 @@ def clamp(v, lo, hi):
 # printing complex numbers
 def signstr(num):
     if math.sign(num) == -1:
-        return "-"
+        return '-'
     else:
-        return "+"
+        return '+'
 
 def strcomplex(num):
-    return "{:8g} {} {:<8g}i".format(
+    return '{:8g} {} {:<8g}i'.format(
         num.real,
         signstr(num.imag),
         abs(num.imag))
 
-print("enter a formula to plot in terms of z and c ({z, c} ∈ ℂ)")
+def process_fn(fn):
+    # replace stuff like 2tan(4x) with 2*tan(4*x)
+    fn = re.sub(r'(\d+)([a-zA-Z]+)', r'\1 * \2', fn)
 
-def get_fn():
-    return input("z_n+1(z, c) := ")
+    # ln = log
+    fn = re.sub(r'ln', r'log', fn)
 
-orig_fn = fn = get_fn() or "z**2 + c"
+    # when you type (x + 2)(x - 2) you probably meant to multiply them right?
+    fn = re.sub(r'\)\s*\(', r')*(', fn)
 
-# replace stuff like 2tan(4x) with 2*tan(4*x)
-fn = re.sub(r"(\d+)([a-zA-Z]+)", r"\1 * \2", fn)
+    fn = re.sub(r'π', r'pi', fn)
 
-# ln = log
-fn = re.sub(r"ln", r"log", fn)
+    fn = re.sub(r'(?<!cmath\.)\b(pi|e|tau|inf|infj|nan|nanj)\b',
+        r'cmath.\1', fn)
 
-# when you type (x + 2)(x - 2) you probably meant to multiply them right?
-fn = re.sub(r"\)\s*\(", r")*(", fn)
+    # (?<! ...)
 
-fn = re.sub(r"π", r"pi", fn)
+    # sinz, sin z, cos c, etc.
+    fn = re.sub(r'''(?<!cmath\.)\b(phase|polar|exp|log10|sqrt|acos|asin|atan|
+    |cos|sin|tan|acosh|asinh|atanh|cosh|sinh|tanh|isfinite|isinf|isnan|log|
+    |rect)\s*([zc])\b''', r'\1(\2)', fn)
 
-fn = re.sub(r"(?<!cmath\.)\b(pi|e|tau|inf|infj|nan|nanj)\b", r"cmath.\1", fn)
+    # sin(z) ...
+    fn = re.sub(r'''(?<!cmath\.)\b(phase|polar|exp|log10|sqrt|acos|asin|atan|
+    |cos|sin|tan|acosh|asinh|atanh|cosh|sinh|tanh|isfinite|isinf|isnan|log|
+    |rect|isclose)\(''', r'cmath.\1(', fn)
 
-# (?<! ...)
+    # so stuff like log(x)sin(x) works as expected
+    fn = re.sub(r'(\w|\))\s+(\w|\()', r'\1 * \2', fn)
 
-# sinz, sin z, cos c, etc.
-fn = re.sub(r"""(?<!cmath\.)\b(phase|polar|exp|log10|sqrt|acos|asin|atan|cos|
-|sin|tan|acosh|asinh|atanh|cosh|sinh|tanh|isfinite|isinf|isnan|log|
-|rect)\s*([zc])\b""", r"\1(\2)", fn)
+    # replace ^ with **
+    fn = re.sub(r'\^', r'**', fn)
 
-# sin(z) ...
-fn = re.sub(r"""(?<!cmath\.)\b(phase|polar|exp|log10|sqrt|acos|asin|atan|cos|
-|sin|tan|acosh|asinh|atanh|cosh|sinh|tanh|isfinite|isinf|isnan|log|rect|
-|isclose)\(""", r"cmath.\1(", fn)
+    return fn
 
-# so stuff like log(x)sin(x) works as expected
-fn = re.sub(r"(\w|\))\s+(\w|\()", r"\1 * \2", fn)
+parser = argparse.ArgumentParser(
+    description='Render an arbitrary Julia set or a grid of Julia sets\n'
+    + 'with differing constants c'
+)
 
-# replace ^ with **
-fn = re.sub(r"\^", r"**", fn)
+parser.add_argument('--fn', '-f', metavar='zₙ₊₁', type=str,
+    default='z**2 + c', help='The Julia set\'s function for iteration.')
 
-fncode = compile(fn, "<string>", "eval")
+parser.add_argument('-c', metavar='constant', type=str, default='0', help=
+'''The constant c for the function zₙ₊₁(z, c). Enter `random` to select a
+random value for c.'''.replace('\n', ' '))
 
-c          =           input("c?              [0]:   ") or "0"
-aspect     = max(float(input("aspect ratio?   [1]:   ") or 1), 1)
-width      = max(  int(input("img width?      [500]: ") or 500), 1)
-iterations = max(  int(input("iterations?     [32]:  ") or 32),  1)
-crange     = max(float(input("c range?        [1.5]: ") or "1.5"), 0)
-cellcount  = max(  int(input("cell count      [1]:   ") or 1), 1)
-center     =           input("center?         [0 0]: ") or "0 0"
-zoom       =     float(input("zoom?           [1]:   ") or "1")
-colorscale = max(  int(input("gradient speed? [1]:   ") or 1), 1)
-cutoff     = max(  int(input("escape radius?  [30]:  ") or 30), 0)
+parser.add_argument('-a', '--aspect', metavar='aspect', type=float,
+    default=1.0, help=
+'''The output image\'s w/h aspect ratio.  Ex.: -a 2 implies an image twice as
+wide as it is tall.'''.replace('\n', ' '))
 
-c = re.sub("\s", "", c)
-c = re.sub("i", "j", c)
-c = complex(c)
+parser.add_argument('-w', '--width', metavar='width', type=int,
+    default='500', help=
+'''The output image\'s width.'''.replace('\n', ' '))
 
-if crange <= 0:
-    # ignored, but avoids divide by 0
+parser.add_argument('-i', '--iterations', metavar='iterations', type=int,
+    default=32, help=
+'''The iterations to calculate the set to.'''.replace('\n', ' '))
+
+parser.add_argument('-r', '--c-range', metavar='c-range', type=float,
+    default=1.5, help=
+'''The range of c values to use --- only relevant if the cell count option
+is used to render a grid of sets; the c values for each sets will range from
+(c_r - crange, c_i - crange·i) to (c_r + crange, c_i + crange·i), where c_r
+and c_i are the real and imaginary components of the constant supplied with
+-c.'''.replace('\n', ' '))
+
+parser.add_argument('-e', '--center', metavar='center', type=float,
+    default=[0, 0], nargs=2, help=
+'''The coordinate the graph is centered around, entered as two floats
+separated by a space. (Not a comma! No parenthesis!)'''.replace('\n', ' '))
+
+parser.add_argument('-n', '--cell-count', metavar='cell count', type=int,
+    default=1, help=
+'''The number of rows and columns to render. A cell count of 1 will render a
+single set, and other values will render grids of Julia sets. The different
+values of c are determined by --c-range or -r.'''.replace('\n', ' '))
+
+parser.add_argument('-z', '--zoom', metavar='zoom', type=float,
+    default=1, help=
+'''How zoomed in the render is. The distance between the center-point and
+the top / bottom of the rendered area is 1 / zoom. Larger values of will
+produce a more zoomed-in image, smaller values (<1) will produce a more
+zoomed-out image.'''.replace('\n', ' '))
+
+parser.add_argument('-g', '--gradient', metavar='gradient speed', type=float,
+    default=1, help=
+'''The plotter colors images by smoothly interpolating the orbit escape
+times for each value of z₀ in the, governed by a sine function. This option
+adds a multiplier within the sine function to increase the oscillation
+speed, which may help to enhance details in lightly colored
+images.'''.replace('\n', ' '))
+
+parser.add_argument('-u', '--cutoff', '--escape-radius',
+    metavar='escape', type=float, default=30, help=
+'''The orbit escape radius --- how large |zₙ| must be before it's considered
+to have diverged. Usually ≈ 30 for Julia sets, 2 for the Mandelbrot
+set.'''.replace('\n', ' '))
+
+parser.add_argument('-o', '--output',
+    metavar='directory', type=str, default='./output/', help=
+'''Output directory to write images to.'''.replace('\n', ' '))
+
+args = parser.parse_args()
+
+aspect     =     args.aspect
+c          =     args.c
+crange     =     args.c_range
+cellcount  = max(args.cell_count, 1)
+center     =     args.center
+cutoff     = max(args.cutoff, 0)
+fn         =     args.fn
+colorscale =     args.gradient
+iterations = max(args.iterations, 1)
+width      = max(args.width, 1)
+zoom       =     args.zoom
+
+def zero_warning(var, extra=''):
+    print('WARNING: ' + var + ' is ZERO. Ignoring. ' + extra)
+
+def neg_warning(var, extra=''):
+    print('WARNING: ' + var + ' is NEGATIVE.'
+        + 'This makes no sense, using absolute value instead. ' + extra)
+
+# validation
+if aspect == 0:
+    zero_warning('aspect')
+    aspect = 1
+elif aspect < 0:
+    neg_warning('aspect')
+    aspect = abs(aspect)
+
+if crange == 0:
+    zero_warning('c range', extra='Rendering only one cell.')
     crange = 1
     cellcount = 1
+elif crange < 0:
+    neg_warning('c range')
+    crange = abs(crange)
+
+if cellcount == 0:
+    zero_warning('cell count')
+    cellcount = 1
+elif cellcount < 0:
+    neg_warning('cell count')
+    cellcount = abs(cellcount)
+
+if cutoff == 0:
+    zero_warning('escape radius')
+    cutoff = 30
+elif cutoff < 0:
+    neg_warning('escape radius')
+    cutoff = abs(cutoff)
+
+if colorscale == 0:
+    zero_warning('gradient scale')
+    colorscale = 1
+elif colorscale < 0:
+    neg_warning('gradient scale')
+    colorscale = abs(colorscale)
+
+if iterations == 0:
+    zero_warning('iterations')
+    iterations = 1
+elif iterations < 0:
+    neg_warning('iterations')
+    iterations = abs(iterations)
+
+if zoom == 0:
+    zero_warning('zoom')
+    zoom = 1
+elif zoom < 0:
+    neg_warning('zoom')
+    zoom = abs(zoom)
+
+orig_fn = fn
+fn = process_fn(fn)
+
+fncode = compile(fn, '<string>', 'eval')
+
+if c.lower() == 'random':
+    from random import random
+    c = 2 * random() - 1 + 2j * random() - 1j
+    print('c = {}'.format(strcomplex(c)))
+else:
+    c = re.sub('\s', '', c)
+    c = re.sub('i', 'j', c)
+    c = complex(c)
 
 height = int(width / aspect)
 rowheight = height / cellcount
@@ -147,21 +278,20 @@ colwidth  = width  / cellcount
 
 cutoff = 30
 
-inx = center.find(" ")
-c_x = float(center[:inx])
-c_y = float(center[(inx + 1):])
+c_x = center[0]
+c_y = center[1]
 spread = 1 / zoom
 
 graph = {
-    "x": {
-        "min": c_x - spread * aspect,
-        "max": c_x + spread * aspect,
-        "c": 0
+    'x': {
+        'min': c_x - spread * aspect,
+        'max': c_x + spread * aspect,
+        'c': 0
     },
-    "y": {
-        "min": c_y - spread,
-        "max": c_y + spread,
-        "c": 0
+    'y': {
+        'min': c_y - spread,
+        'max': c_y + spread,
+        'c': 0
     }
 }
 
@@ -189,17 +319,17 @@ for row in range(cellcount):
 
 # unix_time.ppm
 fname_base = str(int(time.time()))
-print("the time is " + fname_base)
-with open("./info/" + fname_base + ".txt", "w", encoding="utf-8") as out:
+print('the time is ' + fname_base)
+with open('./info/' + fname_base + '.txt', 'w', encoding='utf-8') as out:
     out.write(
-        ( "zₙ₊₁ = {}, c = {}\n"
-        + "rendered area: ({}, {}i) to ({}, {}i)\n"
-        + "center: ({}, {}i)\n"
-        + "zoom = {}×, gradient speed {}, escape radius {}"
-        + "{} iterations\n"
-        + "c range = {:g}\n\n"
-        + "col row, c = ...\n"
-        + "-------------------\n").format(
+        ( 'zₙ₊₁ = {}, c = {}\n'
+        + 'rendered area: ({}, {}i) to ({}, {}i)\n'
+        + 'center: ({}, {}i)\n'
+        + 'zoom = {}×, gradient speed {}, escape radius {}'
+        + '{} iterations\n'
+        + 'c range = {:g}\n\n'
+        + 'col row, c = ...\n'
+        + '-------------------\n').format(
             orig_fn, #z_n
             strcomplex(c), #c
             graph['x']['min'], #render area
@@ -213,15 +343,15 @@ with open("./info/" + fname_base + ".txt", "w", encoding="utf-8") as out:
     )
     for row in range(cellcount):
         for col in range(cellcount):
-            out.write("{} {}, c = {}\n".format(
+            out.write('{} {}, c = {}\n'.format(
                 col,
                 row,
                 strcomplex(cgrid[col][row])
             ))
 
-with open("./output/" + fname_base + ".ppm", "wb") as out:
-    out.write(bytes("P6\n{} {}\n255\n".format(width, height),
-        encoding="ascii"))
+with open('./output/' + fname_base + '.ppm', 'wb') as out:
+    out.write(bytes('P6\n{} {}\n255\n'.format(width, height),
+        encoding='ascii'))
     z: complex
     z_p: complex
     i: int
@@ -241,7 +371,7 @@ with open("./output/" + fname_base + ".ppm", "wb") as out:
         if y != 0:
             eta = (now - start) * (1 / doneamt - 1)
             etastr = (
-                "{: >6.3f} done, eta ≈ {:02d}:{:02d}:{:02d}.{:03d}".format(
+                '{: >6.3f} done, eta ≈ {:02d}:{:02d}:{:02d}.{:03d}'.format(
                     100 * doneamt, # % complete
                     math.floor(eta.seconds / 3600), # hours
                     math.floor((eta.seconds % 3600) / 60), # minutes
@@ -249,7 +379,7 @@ with open("./output/" + fname_base + ".ppm", "wb") as out:
                     math.floor(eta.microseconds / 1000) # milliseconds
                 )
             )
-            print("{: <76}".format(etastr), end="\r")
+            print('{: <76}'.format(etastr), end='\r')
 
         graphy = stgY(y) * 1j
         if row != cellcount - 1 and y == yticks[row]:
@@ -283,4 +413,4 @@ with open("./output/" + fname_base + ".ppm", "wb") as out:
                 out
             )
 
-print("")
+print('')
