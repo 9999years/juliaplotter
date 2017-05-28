@@ -75,7 +75,7 @@ def signstr(num):
     else:
         return "+"
 
-def printcomplex(num):
+def strcomplex(num):
     return "{:8g} {} {:<8g}i".format(
         num.real,
         signstr(num.imag),
@@ -194,17 +194,20 @@ with open("./info/" + fname_base + ".txt", "w", encoding="utf-8") as out:
     out.write(
         ( "zₙ₊₁ = {}, c = {}\n"
         + "rendered area: ({}, {}i) to ({}, {}i)\n"
+        + "center: ({}, {}i)\n"
         + "zoom = {}×, gradient speed {}, escape radius {}"
         + "{} iterations\n"
-        + "c range = {:g}\n"
+        + "c range = {:g}\n\n"
         + "col row, c = ...\n"
         + "-------------------\n").format(
             orig_fn, #z_n
-            printcomplex(c), #c
+            strcomplex(c), #c
             graph['x']['min'], #render area
             graph['y']['min'],
             graph['x']['max'],
             graph['y']['max'],
+            graph['x']['c'],
+            graph['y']['c'],
             zoom, colorscale, cutoff, iterations, crange #etc
         )
     )
@@ -213,7 +216,7 @@ with open("./info/" + fname_base + ".txt", "w", encoding="utf-8") as out:
             out.write("{} {}, c = {}\n".format(
                 col,
                 row,
-                cgrid[col][row]
+                strcomplex(cgrid[col][row])
             ))
 
 with open("./output/" + fname_base + ".ppm", "wb") as out:
@@ -252,6 +255,7 @@ with open("./output/" + fname_base + ".ppm", "wb") as out:
         if row != cellcount - 1 and y == yticks[row]:
             row += 1
 
+        col = 0
         for x in range(0, width):
             if col != cellcount - 1 and x == xticks[col]:
                 col += 1
