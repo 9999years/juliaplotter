@@ -98,28 +98,27 @@ fn = re.sub(r"\^", r"**", fn)
 
 fncode = compile(fn, "<string>", "eval")
 
-c          =         input("c?              [0]:   ") or "0"
-width      = max(int(input("img width?      [500]: ") or 500), 1)
-height     = max(int(input("img height?     [500]: ") or 500), 1)
-iterations = max(int(input("iterations?     [32]:  ") or 32),  1)
-crange     =         input("c range?        [1.5]: ") or "1.5"
-cellcount  = max(int(input("cell count      [1]:   ") or 1), 1)
-center     =         input("center?         [0 0]: ") or "0 0"
-zoom       =         input("zoom?           [1]:   ") or "1"
-colorscale = max(int(input("gradient speed? [1]:   ") or 1), 1)
-cutoff     = max(int(input("escape radius?  [30]:  ") or 30), 0)
+c          =           input("c?              [0]:   ") or "0"
+aspect     = max(float(input("aspect ratio?   [1]:   ") or 500), 0)
+width      = max(  int(input("img width?      [500]: ") or 500), 1)
+iterations = max(  int(input("iterations?     [32]:  ") or 32),  1)
+crange     = max(float(input("c range?        [1.5]: ") or "1.5"), 0)
+cellcount  = max(  int(input("cell count      [1]:   ") or 1), 1)
+center     =           input("center?         [0 0]: ") or "0 0"
+zoom       =     float(input("zoom?           [1]:   ") or "1")
+colorscale = max(  int(input("gradient speed? [1]:   ") or 1), 1)
+cutoff     = max(  int(input("escape radius?  [30]:  ") or 30), 0)
 
 c = re.sub("\s", "", c)
 c = re.sub("i", "j", c)
 c = complex(c)
-
-crange = float(crange)
 
 if crange <= 0:
     # ignored, but avoids divide by 0
     crange = 1
     cellcount = 1
 
+height = int(width / aspect)
 rowheight   = height / cellcount
 columnwidth = width  / cellcount
 
@@ -128,8 +127,7 @@ cutoff = 30
 inx = center.find(" ")
 c_x = float(center[:inx])
 c_y = float(center[(inx + 1):])
-spread = 1 / float(zoom)
-aspect = width / height
+spread = 1 / zoom
 
 graph = {
     "x": {
@@ -201,7 +199,7 @@ with open("./output/" + fname_base + ".ppm", "wb") as out:
         if y != 0:
             eta = (now - start) * (1 / doneamt - 1)
             etastr = (
-                "{: >6.3f}% done, eta ≈ {:02d}:{:02d}:{:02d}:{:03d}".format(
+                "{: >6.3f}% done, eta ≈ {:02d}:{:02d}:{:02d}.{:03d}".format(
                 100 * doneamt, # % complete
                 math.floor(eta.seconds / 3600), # hours
                 math.floor((eta.seconds % 3600) / 60), # minutes
