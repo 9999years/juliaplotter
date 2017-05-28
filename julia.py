@@ -34,11 +34,10 @@ math.cot = cot
 math.sign = sign
 
 # evaluate user input formula, compiled to bytecode
-# this actually works if fn is just a string
 def eval_fn(z, c):
-    global fn
+    global fncode
     try:
-        return eval(fn)
+        return eval(fncode)
     except (ValueError, OverflowError, ZeroDivisionError):
         # negative number in a log or root probably
         # probably a user error
@@ -58,23 +57,36 @@ def zeroscale(val, valmax, outmin, outmax):
 # screen coords to graph coords
 def stgX(x):
     global graph, columnwidth
-    return scale(x % columnwidth, 0, columnwidth, graph['x']['min'], graph['x']['max'])
+    return scale(x % columnwidth, 0,
+        columnwidth, graph['x']['min'], graph['x']['max'])
 
 def stgY(y):
     global graph, rowheight
-    return scale(y % rowheight, 0, rowheight, graph['y']['max'], graph['y']['min'])
+    return scale(y % rowheight, 0, rowheight,
+        graph['y']['max'], graph['y']['min'])
 
 def clamp(v, lo, hi):
     return max(min(v, hi), lo)
+
+# printing complex numbers
+def signstr(num):
+    if math.sign(num) == -1:
+        return "-"
+    else:
+        return "+"
+
+def printcomplex(num):
+    return "{:8g} {} {:<8g}i".format(
+        num.real,
+        signstr(num.imag),
+        abs(num.imag))
 
 print("enter a formula to plot in terms of z and c ({z, c} ∈ ℂ)")
 
 def get_fn():
     return input("z_n+1(z, c) := ")
 
-orig_fn = fn = get_fn()
-if len(fn) is 0:
-    fn = "z^2 + c"
+orig_fn = fn = get_fn() or "z**2 + c"
 
 # replace stuff like 2tan(4x) with 2*tan(4*x)
 fn = re.sub(r"(\d+)([a-zA-Z]+)", r"\1 * \2", fn)
@@ -83,7 +95,7 @@ fn = re.sub(r"(\d+)([a-zA-Z]+)", r"\1 * \2", fn)
 fn = re.sub(r"ln", r"log", fn)
 
 # when you type (x + 2)(x - 2) you probably meant to multiply them right?
-fn = re.sub(r"\)\s+\(", r")*(", fn)
+fn = re.sub(r"\)\s*\(", r")*(", fn)
 
 fn = re.sub(r"π", r"pi", fn)
 
@@ -107,31 +119,38 @@ fn = re.sub(r"(\w|\))\s+(\w|\()", r"\1 * \2", fn)
 # replace ^ with **
 fn = re.sub(r"\^", r"**", fn)
 
-c          =         input("c? (default 0):            ") or "0"
-width      = max(int(input("img width?  (default 500): ") or 500), 1)
-height     = max(int(input("img height? (default 500): ") or 500), 1)
-iterations = max(int(input("iterations? (default 32):  ") or 32),  1)
-cellcount  = max(int(input("cell count (default 1):    ") or 1), 1)
-center     =         input("center? (default 0 0):     ") or "0 0"
-zoom       =         input("zoom?  (default 1):        ") or "1"
+fncode = compile(fn, "<string>", "eval")
+
+c          =           input("c?              [0]:   ") or "0"
+aspect     = max(float(input("aspect ratio?   [1]:   ") or 1), 1)
+width      = max(  int(input("img width?      [500]: ") or 500), 1)
+iterations = max(  int(input("iterations?     [32]:  ") or 32),  1)
+crange     = max(float(input("c range?        [1.5]: ") or "1.5"), 0)
+cellcount  = max(  int(input("cell count      [1]:   ") or 1), 1)
+center     =           input("center?         [0 0]: ") or "0 0"
+zoom       =     float(input("zoom?           [1]:   ") or "1")
+colorscale = max(  int(input("gradient speed? [1]:   ") or 1), 1)
+cutoff     = max(  int(input("escape radius?  [30]:  ") or 30), 0)
 
 c = re.sub("\s", "", c)
 c = re.sub("i", "j", c)
 c = complex(c)
 
-crange = max(float(crange), 0)
+if crange <= 0:
+    # ignored, but avoids divide by 0
+    crange = 1
+    cellcount = 1
 
+height = int(width / aspect)
 rowheight   = height / cellcount
-columnwidth = width / cellcount
+columnwidth = width  / cellcount
 
 cutoff = 30
 
 inx = center.find(" ")
 c_x = float(center[:inx])
 c_y = float(center[(inx + 1):])
-spread = 1 / float(zoom)
-aspect = width / height
-localc: float
+spread = 1 / zoom
 
 graph = {
     "x": {
@@ -154,21 +173,39 @@ def write_pixel(r, g, b, f):
 
 # unix_time.ppm
 fname_base = str(int(time.time()))
-with open("./info/" + fname_base + ".txt", "w") as out:
+print("the time is " + fname_base)
+with open("./info/" + fname_base + ".txt", "w", encoding="utf-8") as out:
     out.write(
-        "z_n+1 = " + orig_fn +
-        "\nc = " + str(c.real) + " + " + str(c.imag) + "i" +
-        "\nrendered area: ("
-        + str(graph['x']['min']) + ", " + str(graph['y']['min']) + ") to ("
-        + str(graph['x']['max']) + ", " + str(graph['y']['max']) + ")" +
-        "\niterations: " + str(iterations)
+        ( "zₙ₊₁ = {}, c = {}\n"
+        + "rendered area: ({}, {}i) to ({}, {}i)\n"
+        + "zoom = {}×, gradient speed {}, escape radius {}"
+        + "{} iterations\n"
+        + "c range = {:g}\n").format(
+            orig_fn, #z_n
+            printcomplex(c), #c
+            graph['x']['min'], #render area
+            graph['y']['min'],
+            graph['x']['max'],
+            graph['y']['max'],
+            zoom, colorscale, cutoff, iterations, crange #etc
+        )
     )
 
+    for row in range(1, cellcount + 1):
+        localy = c.imag
+        if cellcount != 1:
+            localy += crange - 2 * crange * row / (cellcount - 1)
+
+        for column in range(1, cellcount + 1):
+            localc = c.real
+            if cellcount != 1:
+                localc += 2 * crange * column / (cellcount - 1) - crange
+            out.write(str(column) + " " + str(row) + " = " + str(localc)
+                + signstr(localy) + str(abs(localy)) + "i\n")
+
 with open("./output/" + fname_base + ".ppm", "wb") as out:
-    out.write(bytes("P6\n"
-        + str(width)  + " " + str(height) + "\n255\n",
-        encoding="ascii")
-    )
+    out.write(bytes("P6\n{} {}\n255\n".format(width, height),
+        encoding="ascii"))
     z: complex
     z_p: complex
     i: int
@@ -176,9 +213,10 @@ with open("./output/" + fname_base + ".ppm", "wb") as out:
     graphx: float
     row: int
     column: int
+    localc: complex
     localy: float
     start = datetime.now()
-    # render columns, rows
+
     for y in range(0, height):
 
         # eta prediction, % done
@@ -186,36 +224,36 @@ with open("./output/" + fname_base + ".ppm", "wb") as out:
         # Δt / % done = est. total time
         # ETT - Δt = est. time left
         doneamt = y / height
-        if doneamt != 0:
+        if y != 0:
             eta = (now - start) * (1 / doneamt - 1)
             etastr = (
-                "{: >6.3f}% done, eta ≈ {:02d}:{:02d}:{:02d}:{:03d}".format(
-                100 * doneamt, # % complete
-                math.floor(eta.seconds / 3600), # hours
-                math.floor((eta.seconds % 3600) / 60), # minutes
-                eta.seconds % 60, # seconds
-                math.floor(eta.microseconds / 1000) # milliseconds
-            ))
-            print("{: <80}".format(etastr), end="\r")
-        else:
-            print("0% done, unknown eta", end="\r")
+                "{: >6.3f} done, eta ≈ {:02d}:{:02d}:{:02d}.{:03d}".format(
+                    100 * doneamt, # % complete
+                    math.floor(eta.seconds / 3600), # hours
+                    math.floor((eta.seconds % 3600) / 60), # minutes
+                    eta.seconds % 60, # seconds
+                    math.floor(eta.microseconds / 1000) # milliseconds
+                )
+            )
+            print("{: <76}".format(etastr), end="\r")
 
-        graphy = stgY(y)
-        localy = (c.imag
-            + scale(row + 0.5, 0.5, cellcount - 0.5, crange, -crange)
-        )
+        graphy = stgY(y % rowheight)
+        row = math.floor(y / rowheight)
+        localy = c.imag
+        if cellcount != 1:
+            localy += crange - 2 * crange * row / (cellcount - 1)
+
         for x in range(0, width):
             column = math.floor(x / columnwidth)
-            localc = (
-                  c.real
-                + scale(column + 0.5, 0.5, cellcount - 0.5, -crange, crange)
-                + localy*1j
-            )
-            z_p = z = stgX(x) + graphy*1j
+            localc = c.real + localy*1j
+
+            if cellcount != 1:
+                localc += 2 * crange * column / (cellcount - 1) - crange
+
+            z_p = z = stgX(x % columnwidth) + graphy*1j
             i = 0
             # smooth coloring using exponents????
             color = math.exp(-abs(z))
-            # print("z_0 = " + str(z))
             for i in range(0, iterations):
                 z = eval_fn(z, localc)
                 if cmath.isnan(z) or not cmath.isfinite(z):
@@ -226,11 +264,13 @@ with open("./output/" + fname_base + ".ppm", "wb") as out:
                     break
                 z_p = z
                 color += math.exp(-abs(z))
+
             color /= iterations
             write_pixel(
-                int(255 * math.sin(color * 9) ** 2),
-                int(255 * math.sin(color * 10) ** 2),
-                int(255 * math.sin(color * 11) ** 2),
+                int(255 * math.sin(color * colorscale * 9) ** 2),
+                int(255 * math.sin(color * colorscale * 10) ** 2),
+                int(255 * math.sin(color * colorscale * 11) ** 2),
                 out
             )
-    print("", end="\n")
+
+print("")
