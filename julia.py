@@ -1,12 +1,21 @@
+# for eta
 from datetime import datetime
+# for unix timestamp filenames
 import time
+# floor mostly, some assorted stuff
 import math
+# misc for actually evaluating the julia equations
 import cmath
+# turning user input into an eval-able formula
 import re
+# file writing
 import codecs
+# args? i actually might not need this
 import sys
 
 # why arent these in math in the first place?
+# we need them to make user formulae sensible
+# maybe i should make a pull request...
 def sec(x):
     return 1 / math.cos(x)
 
@@ -24,30 +33,36 @@ math.csc = csc
 math.cot = cot
 math.sign = sign
 
+# evaluate user input formula, compiled to bytecode
+# this actually works if fn is just a string
 def eval_fn(z, c):
     global fn
-    ret: float
     try:
-        ret = eval(fn)
+        return eval(fn)
     except (ValueError, OverflowError, ZeroDivisionError):
         # negative number in a log or root probably
-        ret = float("nan")
-    return ret
+        # probably a user error
+        return float("nan")
 
 # linear map val∈[valmin, valmax] |→ out∈[outmin, outmax]
-def scale(val,  valmin,  valmax,  outmin,  outmax):
+def scale(val, valmin, valmax, outmin, outmax):
     return (
         (val - valmin) / (valmax - valmin)
         * (outmax - outmin) + outmin
     )
 
+# linear map val∈[0, valmax] |→ out∈[outmin, outmax]
+def zeroscale(val, valmax, outmin, outmax):
+    return (val / valmax) * (outmax - outmin) + outmin
+
+# screen coords to graph coords
 def stgX(x):
     global graph, columnwidth
-    return scale(x, 0, columnwidth, graph['x']['min'], graph['x']['max'])
+    return scale(x % columnwidth, 0, columnwidth, graph['x']['min'], graph['x']['max'])
 
 def stgY(y):
     global graph, rowheight
-    return scale(y, 0, rowheight, graph['y']['max'], graph['y']['min'])
+    return scale(y % rowheight, 0, rowheight, graph['y']['max'], graph['y']['min'])
 
 def clamp(v, lo, hi):
     return max(min(v, hi), lo)
@@ -196,7 +211,7 @@ with open("./output/" + fname_base + ".ppm", "wb") as out:
                 + scale(column + 0.5, 0.5, cellcount - 0.5, -crange, crange)
                 + localy*1j
             )
-            z_p = z = stgX(x % columnwidth) + graphy*1j
+            z_p = z = stgX(x) + graphy*1j
             i = 0
             # smooth coloring using exponents????
             color = math.exp(-abs(z))
