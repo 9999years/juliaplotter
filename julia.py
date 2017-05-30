@@ -186,19 +186,31 @@ parser.add_argument('-o', '--output',
     metavar='directory', type=str, default='./output/', help=
 '''Output directory to write images to.'''.replace('\n', ' '))
 
+parser.add_argument('--info-dir-name',
+    metavar='directory', type=str, default='info', help=
+'''Directory to write information files to. Is always a first-level directory
+within the output directory, and changing it will probably mess up HTML
+output.'''.replace('\n', ' '))
+
+parser.add_argument('--no-info', help=
+'''Don't write information files to the info directory.'''.replace('\n', ' '))
+
 args = parser.parse_args()
 
-aspect     =     args.aspect
-c          =     args.c
-crange     =     args.c_range
-cellcount  = max(args.cell_count, 1)
-center     =     args.center
-cutoff     = max(args.cutoff, 0)
-fn         =     args.fn
-colorscale =     args.gradient
-iterations = max(args.iterations, 1)
-width      = max(args.width, 1)
-zoom       =     args.zoom
+aspect     = args.aspect
+c          = args.c
+crange     = args.c_range
+cellcount  = args.cell_count
+center     = args.center
+cutoff     = args.cutoff
+fn         = args.fn
+colorscale = args.gradient
+iterations = args.iterations
+width      = args.width
+zoom       = args.zoom
+write_info = not args.no_info
+info_dir   = args.info_dir_name
+out_dir    = args.output
 
 def zero_warning(var, extra=''):
     print('WARNING: ' + var + ' is ZERO. Ignoring. ' + extra)
@@ -320,45 +332,73 @@ for row in range(cellcount):
 # unix_time.ppm
 fname_base = str(int(time.time()))
 print('the time is ' + fname_base)
-with open('./info/' + fname_base + '.txt', 'w', encoding='utf-8') as out:
-    out.write(
-        ( 'zₙ₊₁ = {}, c = {}\n'
-        + 'rendered area: ({}, {}i) to ({}, {}i)\n'
-        + 'center: ({}, {}i)\n'
-        + 'zoom = {}×, gradient speed {}, escape radius {}'
-        + '{} iterations\n'
-        + 'c range = {:g}\n\n'
-        + 'col row, c = ...\n'
-        + '-------------------\n').format(
-            orig_fn, #z_n
-            strcomplex(c), #c
-            graph['x']['min'], #render area
-            graph['y']['min'],
-            graph['x']['max'],
-            graph['y']['max'],
-            graph['x']['c'],
-            graph['y']['c'],
-            zoom, colorscale, cutoff, iterations, crange #etc
+if write_info:
+    with open(out_dir + '/' + info_dir + '/' + fname_base + '.txt',
+        'w', encoding='utf-8') as out:
+        out.write(
+            ( 'zₙ₊₁ = {}, c = {}\n'
+            + 'rendered area: ({}, {}i) to ({}, {}i)\n'
+            + 'center: ({}, {}i)\n'
+            + 'zoom = {}×, gradient speed {}, escape radius {}'
+            + '{} iterations\n'
+            + 'c range = {:g}\n\n'
+            + 'col row, c = ...\n'
+            + '-------------------\n').format(
+                orig_fn, #z_n
+                strcomplex(c), #c
+                graph['x']['min'], #render area
+                graph['y']['min'],
+                graph['x']['max'],
+                graph['y']['max'],
+                graph['x']['c'],
+                graph['y']['c'],
+                zoom, colorscale, cutoff, iterations, crange #etc
+            )
         )
-    )
-    for row in range(cellcount):
-        for col in range(cellcount):
-            out.write('{} {}, c = {}\n'.format(
-                col,
-                row,
-                strcomplex(cgrid[col][row])
-            ))
+        for row in range(cellcount):
+            for col in range(cellcount):
+                out.write('{} {}, c = {}\n'.format(
+                    col,
+                    row,
+                    strcomplex(cgrid[col][row])
+                ))
 
 # write html viewer
 with open('./starttemplate.html') as template_start, \
     open('./endtemplate.html') as template_end, \
-    open('./info/' + fname_base + '.html', 'w', encoding='utf-8') as out:
-    out.write(template_start.read())
-    out.write('<map name="juliagrid">')
-    out.write('<img usemap="#juliagrid" src="../">')
-    out.write(template_end.read())
+    open(out_dir + '/' + info_dir + '/' + fname_base + '.html',
+        'w', encoding='utf-8') as out:
+    out.write(template_start.read() + '<map name="juliagrid">')
+    targets_str = ''
+    for row in range(cellcount):
+        for col in range(cellcount):
+            # <area shape="rect" coords="x1,y1,x2,y2" href="#c-r">
+            out.write(('<area shape="rect" coords="{},{},{},{}"'
+                + 'href="#{}-{}">\n').format(
+                    int(colwidth *  col     ), int(rowheight *  row     ),
+                    int(colwidth * (col + 1)), int(rowheight * (row + 1)),
+                    col + 1, row + 1
+                )
+            )
+            targets_str += ('<div id="{0}-{1}">column {0}, row {1}: c = {2}'
+                + '<p><code>python julia.py '
+                + '-f "{}" -c "{}" -i {} -w {} -a {} -e {} {} -z {} -g {} -u {}'.format(
+                    orig_fn, strcomplex(cgrid[col][row]), iterations, width,
+                    aspect, args.center[0], args.center[1], zoom, colorscale,
+                    cutoff
+                )
+                + '</code></div>\n').format(
+                col + 1, row + 1, strcomplex(cgrid[col][row])
+            )
+    out.write('</map>\n'
+        + '<img usemap="#juliagrid" src="../' + fname_base + '.png">'
+        + '<div class="targets">'
+        + targets_str
+        + '</div><p>click on a cell to see the constant and the'
+        + 'command-line invocation used to render it!'
+        + template_end.read())
 
-with open('./output/' + fname_base + '.ppm', 'wb') as out:
+with open(out_dir + '/' + fname_base + '.ppm', 'wb') as out:
     out.write(bytes('P6\n{} {}\n255\n'.format(width, height),
         encoding='ascii'))
     z: complex
