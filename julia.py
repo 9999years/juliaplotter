@@ -191,32 +191,27 @@ Directory to write information files to. Is always a first-level directory
 within the output directory, and changing it will probably mess up HTML
 output.'''))
 
-parser.add_argument('--write-info', action='store_true', help=desc('''
-Write simple info to a txt file in addition to an HTML file. Automatically
-enabled if `-n` is `1` (default).'''))
-
-parser.add_argument('--no-info', action='store_true',
-    help='''Don't write the simple txt info file.''')
-
-parser.add_argument('--write-html', action='store_true', help=desc('''
-Write info to an HTML file. Automatically enabled if `-n` is `1`
-(default).'''))
-
-parser.add_argument('--no-html', action='store_true', help=desc('''
-Don't write HTML info (automatically disabled if `-n` is `1`
-(default).'''))
+parser.add_argument('--no-info', action='store_false',
+    help='''Don't write the HTML info file.''')
 
 parser.add_argument('--no-render', action='store_true', help=desc('''
-Generates appropriate HTML and txt information files but doesn't render an
-image'''))
+Generates appropriate HTML information files but doesn't render an
+image (useful with `--filename` if the info for an image has been lost to
+the sands of time...)'''))
 
-parser.add_argument('--silent', action='store_true', help=desc('''
-Don't write either the HTML *OR* the txt information files --- overrides all
-other info-related options'''))
+parser.add_argument('--no-progress', action='store_false', help=desc('''
+Don't output progress percentage and finish ETA. May increase
+performance.'''))
 
 parser.add_argument('--filename', metavar='pathspec', type=str, help=desc('''
 Filename base for the output image. Defaults to the Unix timestamp. Relative to
 the output directory. Shouldn't include extensions.'''))
+
+parser.add_argument('--no-convert', action='store_false', help=desc('''
+Don't shell out to `magick` to convert the .ppm to a .png after rendering.'''))
+
+parser.add_argument('--no-open', action='store_false', help=desc('''
+Don't open HTML output in a browser after completing rendering.'''))
 
 args = parser.parse_args()
 
@@ -234,21 +229,11 @@ zoom       = args.zoom
 info_dir   = args.info_dir_name
 out_dir    = args.output
 no_render  = args.no_render
-fname_base = args.filename
-
-# which output to write?
-if cellcount == 1:
-    # 1 big set = txt, no html
-    write_info = args.no_info is False
-    write_html = args.write_html
-else:
-    # grid = no txt, html
-    write_info = args.write_info
-    write_html = args.no_html is False
-
-if args.silent:
-    write_info = False
-    write_html = False
+fname = args.filename
+show_prog  = args.no_progress
+write_info = args.no_info
+convert    = args.no_convert
+open_html  = args.no_open
 
 def zero_warning(var, extra=''):
     print('WARNING: ' + var + ' is ZERO. Ignoring. ' + extra)
@@ -365,74 +350,71 @@ for row in range(cellcount):
         cgrid[col][row] = localc + localy*1j
 
 # unix_time.ppm
-fname_base = fname_base or str(int(time.time()))
-print('the time is ' + fname_base)
-if write_info:
-    with open(out_dir + '/' + info_dir + '/' + fname_base + '.txt',
-        'w', encoding='utf-8') as out:
-        out.write(
-            ( 'zₙ₊₁ = {}, c = {}\n'
-            + 'rendered area: ({}, {}i) to ({}, {}i)\n'
-            + 'center: ({}, {}i)\n'
-            + 'zoom = {}×, gradient speed {}, escape radius {}'
-            + '{} iterations\n'
-            + 'c range = {:g}\n\n'
-            + 'col row, c = ...\n'
-            + '-------------------\n').format(
-                orig_fn, #z_n
-                strcomplex(c), #c
-                graph['x']['min'], #render area
-                graph['y']['min'],
-                graph['x']['max'],
-                graph['y']['max'],
-                graph['x']['c'],
-                graph['y']['c'],
-                zoom, colorscale, cutoff, iterations, crange #etc
-            )
-        )
-        for row in range(cellcount):
-            for col in range(cellcount):
-                out.write('{} {}, c = {}\n'.format(
-                    col,
-                    row,
-                    strcomplex(cgrid[col][row])
-                ))
+fname = fname or str(int(time.time()))
+print('the time is ' + fname)
 
-if write_html:
+if write_info:
     with open('./starttemplate.html') as template_start, \
         open('./endtemplate.html') as template_end, \
-        open(out_dir + '/' + info_dir + '/' + fname_base + '.html',
+        open(out_dir + '/' + info_dir + '/' + fname + '.html',
             'w', encoding='utf-8') as out:
-        out.write(template_start.read() + '<map name="juliagrid">')
         targets_str = ''
-        for row in range(cellcount):
-            for col in range(cellcount):
-                # <area shape="rect" coords="x1,y1,x2,y2" href="#c-r">
-                out.write(
-                    '<area shape="rect" coords="{},{},{},{}"'
-                    'href="#{}-{}">\n'.format(
-                        int(colwidth *  col     ), int(rowheight *  row     ),
-                        int(colwidth * (col + 1)), int(rowheight * (row + 1)),
-                        col + 1, row + 1
+        out.write(template_start.read())
+        if cellcount > 1:
+            out.write('<map name="juliagrid" id="juliamap">')
+            for row in range(cellcount):
+                for col in range(cellcount):
+                    out.write(
+                        '<area shape="rect" coords="' + ','.join(
+                        [str(int(colwidth  *  col)) #top left
+                        ,str(int(rowheight *  row))
+                        ,str(int(colwidth  * (col + 1))) #bottom right
+                        ,str(int(rowheight * (row + 1)))])
+                        + f'" href="#{col + 1}-{row + 1}">\n'
                     )
-                )
-                targets_str += (
-                    '<div id="{0}-{1}">column {0}, row {1}: c = {2}'
-                    '<p><code>python julia.py '
-                    + ('-f "{}" -c "{}" -i {} -w {} -a {} '
-                    '-e {} {} -z {} -g {} -u {}').format(
-                        orig_fn, strcomplex(cgrid[col][row]), iterations,
-                        width, aspect, args.center[0], args.center[1], zoom,
-                        colorscale, cutoff
-                    ) + '; make convert</code></div>\n').format(
-                    col + 1, row + 1, strcomplex(cgrid[col][row])
-                )
+                    targets_str += (
+                        f'<div id="{col + 1}-{row + 1}">column {col + 1}, '
+                        f'row {row + 1}: c = {strcomplex(cgrid[col][row])}'
+                        '<p><code>python julia.py '
+                        f'-f "{orig_fn}" -c "{strcomplex(cgrid[col][row])}" '
+                        f'-i {iterations} -w {width} -a {aspect} '
+                        f'-e {args.center[0]} {args.center[1]} -z {zoom} '
+                        f'-g {colorscale} -u {cutoff}</code></div>\n'
+                    )
+            out.write('</map>\n')
+        else:
+            targets_str = (
+                '<p><code>python julia.py '
+                f'-f "{orig_fn}" -c "{strcomplex(cgrid[0][0])}" '
+                f'-i {iterations} -w {width} -a {aspect} '
+                f'-e {args.center[0]} {args.center[1]} -z {zoom} '
+                f'-g {colorscale} -u {cutoff}</code>\n'
+            )
+
+        def tr(one, two):
+            return f'<tr><td>{one}</td><td>{two}</td></tr>'
+
         out.write(
-            '</map>\n'
-            '<img usemap="#juliagrid" src="../' + fname_base + '.png">\n'
-            '<div class="targets">\n' + targets_str + '\n'
-            '</div><p>click on a cell to see the constant and the '
-            'command-line invocation used to render it!'
+            '<img ' + ('usemap="#juliagrid" ' if cellcount > 1 else '')
+            + f'src="../{fname}.png" id="julia">\n' +
+            ('<div class="targets">' if cellcount > 1 else '')
+            + targets_str +
+            (('</div><p>click on a cell to see the constant and the '
+            'command-line invocation used to render it!') if cellcount > 1
+            else '')
+            + '<table class="render-info">'
+            + tr('zₙ₊₁', orig_fn)
+            + tr('c', strcomplex(c))
+            + tr('rendered area',
+                f'({graph["x"]["min"]}, {graph["y"]["min"]}i)'
+                f' to ({graph["x"]["max"]}, {graph["y"]["max"]}i)')
+            + tr('center', f'({graph["x"]["c"]}, {graph["y"]["c"]}i)')
+            + tr('zoom', f'{zoom}×')
+            + tr('gradient speed', colorscale)
+            + tr('escape radius', cutoff)
+            + tr('iterations', iterations)
+            + tr('c range', f'{crange:g}')
+            + '</table>'
             + template_end.read())
 
 if no_render:
@@ -441,7 +423,12 @@ if no_render:
 def write_pixel(r, g, b, f):
     f.write(bytes([r, g, b]))
 
-with open(out_dir + '/' + fname_base + '.ppm', 'wb') as out:
+def strtimedelta(time):
+    return (f'{math.floor(time.seconds / 3600):02d}:'
+        f'{math.floor((time.seconds % 3600) / 60):02d}:'
+        f'{time.seconds % 60:02d}.{math.floor(time.microseconds / 1000):03d}')
+
+with open(out_dir + '/' + fname + '.ppm', 'wb') as out:
     out.write(bytes('P6\n{} {}\n255\n'.format(width, height),
         encoding='ascii'))
     z: complex
@@ -455,23 +442,17 @@ with open(out_dir + '/' + fname_base + '.ppm', 'wb') as out:
 
     for y in range(0, height):
 
-        # eta prediction, % done
-        now = datetime.now()
-        # Δt / % done = est. total time
-        # ETT - Δt = est. time left
-        doneamt = y / height
-        if y != 0:
-            eta = (now - start) * (1 / doneamt - 1)
-            etastr = (
-                '{: >6.3f}% done, eta ≈ {:02d}:{:02d}:{:02d}.{:03d}'.format(
-                    100 * doneamt, # % complete
-                    math.floor(eta.seconds / 3600), # hours
-                    math.floor((eta.seconds % 3600) / 60), # minutes
-                    eta.seconds % 60, # seconds
-                    math.floor(eta.microseconds / 1000) # milliseconds
-                )
-            )
-            print('{: <76}'.format(etastr), end='\r')
+        if show_prog:
+            # eta prediction, % done
+            now = datetime.now()
+            # Δt / % done = est. total time
+            # ETT - Δt = est. time left
+            doneamt = y / height
+            if y != 0:
+                eta = (now - start) * (1 / doneamt - 1)
+                print('{: <76}'.format(
+                    f'{100 * doneamt: >6.3f}% done, eta ≈ {strtimedelta(eta)}'
+                ), end='\r')
 
         graphy = stgY(y) * 1j
         if row != cellcount - 1 and y == yticks[row]:
@@ -505,4 +486,21 @@ with open(out_dir + '/' + fname_base + '.ppm', 'wb') as out:
                 out
             )
 
-print('')
+    end = datetime.now()
+    print(f'Done! Completed in {strtimedelta(end - start)}')
+
+if convert:
+    # convert ppm to png (if requested, by default on)
+    from subprocess import run
+    import os
+    print(f'Converting {fname}.ppm to {fname}.png')
+    run(['magick', 'mogrify', '-format', 'png', f'{out_dir}/{fname}.ppm'])
+    os.remove(f'{out_dir}/{fname}.ppm')
+if open_html:
+    import webbrowser
+    from urllib.request import pathname2url
+    webbrowser.open('file:'
+        + pathname2url(os.path.abspath(
+            f'{out_dir}/{info_dir}/{fname}.html'
+        ))
+    )
