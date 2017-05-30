@@ -206,9 +206,17 @@ parser.add_argument('--no-html', action='store_true', help=desc('''
 Don't write HTML info (automatically disabled if `-n` is `1`
 (default).'''))
 
+parser.add_argument('--no-render', action='store_true', help=desc('''
+Generates appropriate HTML and txt information files but doesn't render an
+image'''))
+
 parser.add_argument('--silent', action='store_true', help=desc('''
 Don't write either the HTML *OR* the txt information files --- overrides all
 other info-related options'''))
+
+parser.add_argument('--filename', metavar='pathspec', type=str, help=desc('''
+Filename base for the output image. Defaults to the Unix timestamp. Relative to
+the output directory. Shouldn't include extensions.'''))
 
 args = parser.parse_args()
 
@@ -225,16 +233,18 @@ width      = args.width
 zoom       = args.zoom
 info_dir   = args.info_dir_name
 out_dir    = args.output
+no_render  = args.no_render
+fname_base = args.filename
 
 # which output to write?
 if cellcount == 1:
     # 1 big set = txt, no html
-    write_info = args.no_info and False
+    write_info = args.no_info is False
     write_html = args.write_html
 else:
     # grid = no txt, html
     write_info = args.write_info
-    write_html = args.no_html and False
+    write_html = args.no_html is False
 
 if args.silent:
     write_info = False
@@ -355,7 +365,7 @@ for row in range(cellcount):
         cgrid[col][row] = localc + localy*1j
 
 # unix_time.ppm
-fname_base = str(int(time.time()))
+fname_base = fname_base or str(int(time.time()))
 print('the time is ' + fname_base)
 if write_info:
     with open(out_dir + '/' + info_dir + '/' + fname_base + '.txt',
@@ -409,13 +419,12 @@ if write_html:
                 targets_str += (
                     '<div id="{0}-{1}">column {0}, row {1}: c = {2}'
                     '<p><code>python julia.py '
-                    ('-f "{}" -c "{}" -i {} -w {} -a {}'
+                    + ('-f "{}" -c "{}" -i {} -w {} -a {} '
                     '-e {} {} -z {} -g {} -u {}').format(
                         orig_fn, strcomplex(cgrid[col][row]), iterations,
                         width, aspect, args.center[0], args.center[1], zoom,
                         colorscale, cutoff
-                    )
-                    + '; make convert</code></div>\n').format(
+                    ) + '; make convert</code></div>\n').format(
                     col + 1, row + 1, strcomplex(cgrid[col][row])
                 )
         out.write(
@@ -425,6 +434,9 @@ if write_html:
             '</div><p>click on a cell to see the constant and the '
             'command-line invocation used to render it!'
             + template_end.read())
+
+if no_render:
+    exit()
 
 def write_pixel(r, g, b, f):
     f.write(bytes([r, g, b]))
