@@ -43,5 +43,13 @@ a:hover {
 	max-width: 600px;
 }
 
+.targets > div {
+	display: none;
+}
+
+.targets > div:target {
+	display: block;
+}
+
 @media (max-width: 650px) {
 }

@@ -1,6 +1,6 @@
 init:
 	mkdir output
-	mkdir info
+	mkdir output/info
 
 convert:
 	magick mogrify -format png -auto-level ./output/*.ppm
