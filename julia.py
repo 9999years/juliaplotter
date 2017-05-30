@@ -11,7 +11,6 @@ import re
 # file writing
 import codecs
 # args? i actually might not need this
-import sys
 import argparse
 
 # why arent these in math in the first place?
@@ -117,83 +116,99 @@ def process_fn(fn):
 
     return fn
 
+def desc(description):
+    if description[0] == '\n':
+        return description[1:].replace('\n', ' ')
+    else:
+        return description.replace('\n', ' ')
+
 parser = argparse.ArgumentParser(
-    description='Render an arbitrary Julia set or a grid of Julia sets\n'
-    + 'with differing constants c'
+    description='Render an arbitrary Julia set or a grid of Julia sets'
+    'with differing constants c from a user-entered equation.'
 )
 
 parser.add_argument('--fn', '-f', metavar='zₙ₊₁', type=str,
-    default='z**2 + c', help='The Julia set\'s function for iteration.')
+    default='z**2 + c', help='''The Julia set's function for iteration.''')
 
-parser.add_argument('-c', metavar='constant', type=str, default='0', help=
-'''The constant c for the function zₙ₊₁(z, c). Enter `random` to select a
-random value for c.'''.replace('\n', ' '))
+parser.add_argument('-c', metavar='constant', type=str,
+    default='0', help=desc('''
+The constant c for the function zₙ₊₁(z, c). Enter `random` to select a random
+value for c.'''))
 
 parser.add_argument('-a', '--aspect', metavar='aspect', type=float,
-    default=1.0, help=
-'''The output image\'s w/h aspect ratio.  Ex.: -a 2 implies an image twice as
-wide as it is tall.'''.replace('\n', ' '))
+    default=1.0, help=desc('''
+The output image's w/h aspect ratio.  Ex.: -a 2 implies an image twice as wide
+as it is tall.'''))
 
 parser.add_argument('-w', '--width', metavar='width', type=int,
-    default='500', help=
-'''The output image\'s width.'''.replace('\n', ' '))
+    default='500', help='''The output image\'s width.''')
 
 parser.add_argument('-i', '--iterations', metavar='iterations', type=int,
-    default=32, help=
-'''The iterations to calculate the set to.'''.replace('\n', ' '))
+    default=32, help='The iterations to calculate the set to.')
 
 parser.add_argument('-r', '--c-range', metavar='c-range', type=float,
-    default=1.5, help=
-'''The range of c values to use --- only relevant if the cell count option
-is used to render a grid of sets; the c values for each sets will range from
-(c_r - crange, c_i - crange·i) to (c_r + crange, c_i + crange·i), where c_r
-and c_i are the real and imaginary components of the constant supplied with
--c.'''.replace('\n', ' '))
+    default=1.5, help=desc('''
+The range of c values to use --- only relevant if the cell count option is used
+to render a grid of sets; the c values for each sets will range from (c_r -
+crange, c_i - crange·i) to (c_r + crange, c_i + crange·i), where c_r and c_i
+are the real and imaginary components of the constant supplied with -c.'''))
 
 parser.add_argument('-e', '--center', metavar='center', type=float,
-    default=[0, 0], nargs=2, help=
-'''The coordinate the graph is centered around, entered as two floats
-separated by a space. (Not a comma! No parenthesis!)'''.replace('\n', ' '))
+    default=[0, 0], nargs=2, help=desc('''
+The coordinate the graph is centered around, entered as two floats separated by
+a space. (Not a comma! No parenthesis!)'''))
 
 parser.add_argument('-n', '--cell-count', metavar='cell count', type=int,
-    default=1, help=
-'''The number of rows and columns to render. A cell count of 1 will render a
+    default=1, help=desc('''
+The number of rows and columns to render. A cell count of 1 will render a
 single set, and other values will render grids of Julia sets. The different
-values of c are determined by --c-range or -r.'''.replace('\n', ' '))
+values of c are determined by --c-range or -r.'''))
 
 parser.add_argument('-z', '--zoom', metavar='zoom', type=float,
-    default=1, help=
-'''How zoomed in the render is. The distance between the center-point and
-the top / bottom of the rendered area is 1 / zoom. Larger values of will
-produce a more zoomed-in image, smaller values (<1) will produce a more
-zoomed-out image.'''.replace('\n', ' '))
+    default=1, help=desc('''
+How zoomed in the render is. The distance between the center-point and the top
+/ bottom of the rendered area is 1 / zoom. Larger values of will produce a more
+zoomed-in image, smaller values (<1) will produce a more zoomed-out image.'''))
 
 parser.add_argument('-g', '--gradient', metavar='gradient speed', type=float,
-    default=1, help=
-'''The plotter colors images by smoothly interpolating the orbit escape
-times for each value of z₀ in the, governed by a sine function. This option
-adds a multiplier within the sine function to increase the oscillation
-speed, which may help to enhance details in lightly colored
-images.'''.replace('\n', ' '))
+    default=1, help=desc('''
+The plotter colors images by smoothly interpolating the orbit escape times for
+each value of z₀ in the, governed by a sine function. This option adds a
+multiplier within the sine function to increase the oscillation speed, which
+may help to enhance details in lightly colored images.'''))
 
 parser.add_argument('-u', '--cutoff', '--escape-radius',
-    metavar='escape', type=float, default=30, help=
-'''The orbit escape radius --- how large |zₙ| must be before it's considered
-to have diverged. Usually ≈ 30 for Julia sets, 2 for the Mandelbrot
-set.'''.replace('\n', ' '))
+    metavar='escape', type=float, default=30, help=desc('''
+The orbit escape radius --- how large |zₙ| must be before it's considered to
+have diverged. Usually ≈ 30 for Julia sets, 2 for the Mandelbrot set.'''))
 
-parser.add_argument('-o', '--output',
-    metavar='directory', type=str, default='./output/', help=
-'''Output directory to write images to.'''.replace('\n', ' '))
+parser.add_argument('-o', '--output', metavar='directory', type=str,
+    default='./output/', help='Output directory to write images to.')
 
 parser.add_argument('--info-dir-name',
-    metavar='directory', type=str, default='info', help=
-'''Directory to write information files to. Is always a first-level directory
+    metavar='directory', type=str, default='info', help=desc('''
+Directory to write information files to. Is always a first-level directory
 within the output directory, and changing it will probably mess up HTML
-output.'''.replace('\n', ' '))
+output.'''))
 
-parser.add_argument('--no-info', help=
-'''Don't write information files to the info directory.'''.replace('\n', ' '))
+parser.add_argument('--write-info', action='store_true', help=desc('''
+Write simple info to a txt file in addition to an HTML file. Automatically
+enabled if `-n` is `1` (default).'''))
+
+parser.add_argument('--no-info', action='store_true',
+    help='''Don't write the simple txt info file.''')
+
+parser.add_argument('--write-html', action='store_true', help=desc('''
+Write info to an HTML file. Automatically enabled if `-n` is `1`
+(default).'''))
+
+parser.add_argument('--no-html', action='store_true', help=desc('''
+Don't write HTML info (automatically disabled if `-n` is `1`
+(default).'''))
+
+parser.add_argument('--silent', action='store_true', help=desc('''
+Don't write either the HTML *OR* the txt information files --- overrides all
+other info-related options'''))
 
 args = parser.parse_args()
 
@@ -204,13 +219,26 @@ cellcount  = args.cell_count
 center     = args.center
 cutoff     = args.cutoff
 fn         = args.fn
-colorscale = args.gradient
 iterations = args.iterations
+colorscale = args.gradient * iterations / 32
 width      = args.width
 zoom       = args.zoom
-write_info = not args.no_info
 info_dir   = args.info_dir_name
 out_dir    = args.output
+
+# which output to write?
+if cellcount == 1:
+    # 1 big set = txt, no html
+    write_info = args.no_info and False
+    write_html = args.write_html
+else:
+    # grid = no txt, html
+    write_info = args.write_info
+    write_html = args.no_html and False
+
+if args.silent:
+    write_info = False
+    write_html = False
 
 def zero_warning(var, extra=''):
     print('WARNING: ' + var + ' is ZERO. Ignoring. ' + extra)
@@ -249,19 +277,19 @@ elif cutoff < 0:
     neg_warning('escape radius')
     cutoff = abs(cutoff)
 
-if colorscale == 0:
-    zero_warning('gradient scale')
-    colorscale = 1
-elif colorscale < 0:
-    neg_warning('gradient scale')
-    colorscale = abs(colorscale)
-
 if iterations == 0:
     zero_warning('iterations')
     iterations = 1
 elif iterations < 0:
     neg_warning('iterations')
     iterations = abs(iterations)
+
+if colorscale == 0:
+    zero_warning('gradient scale')
+    colorscale = iterations / 32
+elif colorscale < 0:
+    neg_warning('gradient scale')
+    colorscale = abs(colorscale)
 
 if zoom == 0:
     zero_warning('zoom')
@@ -309,9 +337,6 @@ graph = {
 
 graph['x']['c'] = (graph['x']['max'] + graph['x']['min']) / 2
 graph['y']['c'] = (graph['y']['max'] + graph['y']['min']) / 2
-
-def write_pixel(r, g, b, f):
-    f.write(bytes([r, g, b]))
 
 cgrid = [[0 for y in range(cellcount)] for x in range(cellcount)]
 #cgrid[x][y]
@@ -363,40 +388,46 @@ if write_info:
                     strcomplex(cgrid[col][row])
                 ))
 
-# write html viewer
-with open('./starttemplate.html') as template_start, \
-    open('./endtemplate.html') as template_end, \
-    open(out_dir + '/' + info_dir + '/' + fname_base + '.html',
-        'w', encoding='utf-8') as out:
-    out.write(template_start.read() + '<map name="juliagrid">')
-    targets_str = ''
-    for row in range(cellcount):
-        for col in range(cellcount):
-            # <area shape="rect" coords="x1,y1,x2,y2" href="#c-r">
-            out.write(('<area shape="rect" coords="{},{},{},{}"'
-                + 'href="#{}-{}">\n').format(
-                    int(colwidth *  col     ), int(rowheight *  row     ),
-                    int(colwidth * (col + 1)), int(rowheight * (row + 1)),
-                    col + 1, row + 1
+if write_html:
+    with open('./starttemplate.html') as template_start, \
+        open('./endtemplate.html') as template_end, \
+        open(out_dir + '/' + info_dir + '/' + fname_base + '.html',
+            'w', encoding='utf-8') as out:
+        out.write(template_start.read() + '<map name="juliagrid">')
+        targets_str = ''
+        for row in range(cellcount):
+            for col in range(cellcount):
+                # <area shape="rect" coords="x1,y1,x2,y2" href="#c-r">
+                out.write(
+                    '<area shape="rect" coords="{},{},{},{}"'
+                    'href="#{}-{}">\n'.format(
+                        int(colwidth *  col     ), int(rowheight *  row     ),
+                        int(colwidth * (col + 1)), int(rowheight * (row + 1)),
+                        col + 1, row + 1
+                    )
                 )
-            )
-            targets_str += ('<div id="{0}-{1}">column {0}, row {1}: c = {2}'
-                + '<p><code>python julia.py '
-                + '-f "{}" -c "{}" -i {} -w {} -a {} -e {} {} -z {} -g {} -u {}'.format(
-                    orig_fn, strcomplex(cgrid[col][row]), iterations, width,
-                    aspect, args.center[0], args.center[1], zoom, colorscale,
-                    cutoff
+                targets_str += (
+                    '<div id="{0}-{1}">column {0}, row {1}: c = {2}'
+                    '<p><code>python julia.py '
+                    ('-f "{}" -c "{}" -i {} -w {} -a {}'
+                    '-e {} {} -z {} -g {} -u {}').format(
+                        orig_fn, strcomplex(cgrid[col][row]), iterations,
+                        width, aspect, args.center[0], args.center[1], zoom,
+                        colorscale, cutoff
+                    )
+                    + '; make convert</code></div>\n').format(
+                    col + 1, row + 1, strcomplex(cgrid[col][row])
                 )
-                + '</code></div>\n').format(
-                col + 1, row + 1, strcomplex(cgrid[col][row])
-            )
-    out.write('</map>\n'
-        + '<img usemap="#juliagrid" src="../' + fname_base + '.png">'
-        + '<div class="targets">'
-        + targets_str
-        + '</div><p>click on a cell to see the constant and the'
-        + 'command-line invocation used to render it!'
-        + template_end.read())
+        out.write(
+            '</map>\n'
+            '<img usemap="#juliagrid" src="../' + fname_base + '.png">\n'
+            '<div class="targets">\n' + targets_str + '\n'
+            '</div><p>click on a cell to see the constant and the '
+            'command-line invocation used to render it!'
+            + template_end.read())
+
+def write_pixel(r, g, b, f):
+    f.write(bytes([r, g, b]))
 
 with open(out_dir + '/' + fname_base + '.ppm', 'wb') as out:
     out.write(bytes('P6\n{} {}\n255\n'.format(width, height),
@@ -455,8 +486,9 @@ with open(out_dir + '/' + fname_base + '.ppm', 'wb') as out:
                 color += math.exp(-abs(z))
 
             color /= iterations
+            # 0xRRGGBB
             write_pixel(
-                int(255 * math.sin(color * colorscale * 9) ** 2),
+                int(255 * math.sin(color * colorscale * 9 ) ** 2),
                 int(255 * math.sin(color * colorscale * 10) ** 2),
                 int(255 * math.sin(color * colorscale * 11) ** 2),
                 out

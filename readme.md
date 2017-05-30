@@ -35,7 +35,7 @@ render a grid of sets; the c values for each sets will range from `(c_r -
 crange, c_i - crange·i)` to `(c_r + crange, c_i + crange·i)`, where `c_r` and
 `c_i` are the real and imaginary components of the constant supplied with `-c`.
 
-### `-e center center, --center center center`
+### `-e cx cy, --center cx cy`
 
 The coordinate the graph is centered around, entered as two floats separated by
 a space. (Not a comma! No parenthesis!)
