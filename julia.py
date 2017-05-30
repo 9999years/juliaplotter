@@ -498,7 +498,6 @@ with open(out_dir + '/' + fname_base + '.ppm', 'wb') as out:
                 color += math.exp(-abs(z))
 
             color /= iterations
-            # 0xRRGGBB
             write_pixel(
                 int(255 * math.sin(color * colorscale * 9 ) ** 2),
                 int(255 * math.sin(color * colorscale * 10) ** 2),
