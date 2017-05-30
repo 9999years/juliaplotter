@@ -19,7 +19,7 @@ h2 {
 }
 
 p {
-	margin: 0 0 1em 0;
+	margin: 1em 0;
 }
 
 /* better underline with gradients */
@@ -43,12 +43,25 @@ a:hover {
 	max-width: 600px;
 }
 
+img#julia {
+	margin-bottom: 1em;
+	max-width: 100%;
+}
+
 .targets > div {
 	display: none;
 }
 
 .targets > div:target {
 	display: block;
+}
+
+tr, td {
+	border: none;
+}
+
+table.render-info td {
+	padding: 0 1em 0.15em 0;
 }
 
 @media (max-width: 650px) {

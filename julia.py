@@ -207,6 +207,12 @@ parser.add_argument('--filename', metavar='pathspec', type=str, help=desc('''
 Filename base for the output image. Defaults to the Unix timestamp. Relative to
 the output directory. Shouldn't include extensions.'''))
 
+parser.add_argument('--no-convert', action='store_false', help=desc('''
+Don't shell out to `magick` to convert the .ppm to a .png after rendering.'''))
+
+parser.add_argument('--no-open', action='store_false', help=desc('''
+Don't open HTML output in a browser after completing rendering.'''))
+
 args = parser.parse_args()
 
 aspect     = args.aspect
@@ -223,9 +229,11 @@ zoom       = args.zoom
 info_dir   = args.info_dir_name
 out_dir    = args.output
 no_render  = args.no_render
-fname_base = args.filename
+fname = args.filename
 show_prog  = args.no_progress
 write_info = args.no_info
+convert    = args.no_convert
+open_html  = args.no_open
 
 def zero_warning(var, extra=''):
     print('WARNING: ' + var + ' is ZERO. Ignoring. ' + extra)
@@ -342,62 +350,71 @@ for row in range(cellcount):
         cgrid[col][row] = localc + localy*1j
 
 # unix_time.ppm
-fname_base = fname_base or str(int(time.time()))
-print('the time is ' + fname_base)
+fname = fname or str(int(time.time()))
+print('the time is ' + fname)
 
 if write_info:
     with open('./starttemplate.html') as template_start, \
         open('./endtemplate.html') as template_end, \
-        open(out_dir + '/' + info_dir + '/' + fname_base + '.html',
+        open(out_dir + '/' + info_dir + '/' + fname + '.html',
             'w', encoding='utf-8') as out:
-        out.write(template_start.read() + '<map name="juliagrid">')
         targets_str = ''
+        out.write(template_start.read())
         if cellcount > 1:
+            out.write('<map name="juliagrid" id="juliamap">')
             for row in range(cellcount):
                 for col in range(cellcount):
-                    # <area shape="rect" coords="x1,y1,x2,y2" href="#c-r">
                     out.write(
-                        '<area shape="rect" coords="{},{},{},{}"'
-                        'href="#{}-{}">\n'.format(
-                            int(colwidth *  col     ), int(rowheight *  row     ),
-                            int(colwidth * (col + 1)), int(rowheight * (row + 1)),
-                            col + 1, row + 1
-                        )
+                        '<area shape="rect" coords="' + ','.join(
+                        [str(int(colwidth  *  col)) #top left
+                        ,str(int(rowheight *  row))
+                        ,str(int(colwidth  * (col + 1))) #bottom right
+                        ,str(int(rowheight * (row + 1)))])
+                        + f'" href="#{col + 1}-{row + 1}">\n'
                     )
                     targets_str += (
-                        f'<div id="{col + 1}-{row + 1}">column {col + 1},'
+                        f'<div id="{col + 1}-{row + 1}">column {col + 1}, '
                         f'row {row + 1}: c = {strcomplex(cgrid[col][row])}'
                         '<p><code>python julia.py '
-                        f'-f "{orig_fn}" -c "{strcomplex(cgrid[col][row])}"'
+                        f'-f "{orig_fn}" -c "{strcomplex(cgrid[col][row])}" '
                         f'-i {iterations} -w {width} -a {aspect} '
-                        f'-e {args.center[0]} {args.center[1]} -z {zoom}'
-                        f'-g {colorscale} -u {cutoff}; make convert</code>\n'
+                        f'-e {args.center[0]} {args.center[1]} -z {zoom} '
+                        f'-g {colorscale} -u {cutoff}</code></div>\n'
                     )
-            targets_str += "</div>"
+            out.write('</map>\n')
         else:
-            targets_str += (
+            targets_str = (
                 '<p><code>python julia.py '
-                f'-f "{orig_fn}" -c "{strcomplex(cgrid[0][0])}"'
+                f'-f "{orig_fn}" -c "{strcomplex(cgrid[0][0])}" '
                 f'-i {iterations} -w {width} -a {aspect} '
-                f'-e {args.center[0]} {args.center[1]} -z {zoom}'
-                f'-g {colorscale} -u {cutoff}; make convert</code>\n'
+                f'-e {args.center[0]} {args.center[1]} -z {zoom} '
+                f'-g {colorscale} -u {cutoff}</code>\n'
             )
 
+        def tr(one, two):
+            return f'<tr><td>{one}</td><td>{two}</td></tr>'
+
         out.write(
-            '</map>\n'
-            f'<img usemap="#juliagrid" src="../{fname_base}.png">\n' +
-            '<div class="targets">' if cellcount > 1 else '' +
-            f'{targets_str}\n'
-            ('</div><p>click on a cell to see the constant and the '
+            '<img ' + ('usemap="#juliagrid" ' if cellcount > 1 else '')
+            + f'src="../{fname}.png" id="julia">\n' +
+            ('<div class="targets">' if cellcount > 1 else '')
+            + targets_str +
+            (('</div><p>click on a cell to see the constant and the '
             'command-line invocation used to render it!') if cellcount > 1
-            else '' +
-            f'<p> zₙ₊₁ = {orig_fn}, c = {strcomplex(c)}\n'
-            f'<p>rendered area: ({graph["x"]["min"]}, {graph["y"]["min"]}i)'
-            f'to ({graph["x"]["max"]}, {graph["y"]["max"]}i)\n'
-            f'<p>center: ({graph["x"]["c"]}, {graph["y"]["c"]}i)\n'
-            f'<p>zoom = {zoom}×<br>gradient speed {colorscale}<br>'
-            f'escape radius {cutoff}<br>{iterations} iterations'
-            f'<br>c range = {crange:g}\n'
+            else '')
+            + '<table class="render-info">'
+            + tr('zₙ₊₁', orig_fn)
+            + tr('c', strcomplex(c))
+            + tr('rendered area',
+                f'({graph["x"]["min"]}, {graph["y"]["min"]}i)'
+                f' to ({graph["x"]["max"]}, {graph["y"]["max"]}i)')
+            + tr('center', f'({graph["x"]["c"]}, {graph["y"]["c"]}i)')
+            + tr('zoom', f'{zoom}×')
+            + tr('gradient speed', colorscale)
+            + tr('escape radius', cutoff)
+            + tr('iterations', iterations)
+            + tr('c range', f'{crange:g}')
+            + '</table>'
             + template_end.read())
 
 if no_render:
@@ -411,7 +428,7 @@ def strtimedelta(time):
         f'{math.floor((time.seconds % 3600) / 60):02d}:'
         f'{time.seconds % 60:02d}.{math.floor(time.microseconds / 1000):03d}')
 
-with open(out_dir + '/' + fname_base + '.ppm', 'wb') as out:
+with open(out_dir + '/' + fname + '.ppm', 'wb') as out:
     out.write(bytes('P6\n{} {}\n255\n'.format(width, height),
         encoding='ascii'))
     z: complex
@@ -470,5 +487,20 @@ with open(out_dir + '/' + fname_base + '.ppm', 'wb') as out:
             )
 
     end = datetime.now()
-    print('')
     print(f'Done! Completed in {strtimedelta(end - start)}')
+
+if convert:
+    # convert ppm to png (if requested, by default on)
+    from subprocess import run
+    import os
+    print(f'Converting {fname}.ppm to {fname}.png')
+    run(['magick', 'mogrify', '-format', 'png', f'{out_dir}/{fname}.ppm'])
+    os.remove(f'{out_dir}/{fname}.ppm')
+if open_html:
+    import webbrowser
+    from urllib.request import pathname2url
+    webbrowser.open('file:'
+        + pathname2url(os.path.abspath(
+            f'{out_dir}/{info_dir}/{fname}.html'
+        ))
+    )
