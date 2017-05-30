@@ -349,6 +349,15 @@ with open('./info/' + fname_base + '.txt', 'w', encoding='utf-8') as out:
                 strcomplex(cgrid[col][row])
             ))
 
+# write html viewer
+with open('./starttemplate.html') as template_start, \
+    open('./endtemplate.html') as template_end, \
+    open('./info/' + fname_base + '.html', 'w', encoding='utf-8') as out:
+    out.write(template_start.read())
+    out.write('<map name="juliagrid">')
+    out.write('<img usemap="#juliagrid" src="../">')
+    out.write(template_end.read())
+
 with open('./output/' + fname_base + '.ppm', 'wb') as out:
     out.write(bytes('P6\n{} {}\n255\n'.format(width, height),
         encoding='ascii'))
