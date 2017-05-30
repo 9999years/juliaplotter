@@ -451,7 +451,7 @@ with open(out_dir + '/' + fname_base + '.ppm', 'wb') as out:
         if y != 0:
             eta = (now - start) * (1 / doneamt - 1)
             etastr = (
-                '{: >6.3f} done, eta ≈ {:02d}:{:02d}:{:02d}.{:03d}'.format(
+                '{: >6.3f}% done, eta ≈ {:02d}:{:02d}:{:02d}.{:03d}'.format(
                     100 * doneamt, # % complete
                     math.floor(eta.seconds / 3600), # hours
                     math.floor((eta.seconds % 3600) / 60), # minutes
