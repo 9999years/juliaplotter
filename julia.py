@@ -354,8 +354,8 @@ fname = fname or str(int(time.time()))
 print('the time is ' + fname)
 
 if write_info:
-    with open('./starttemplate.html') as template_start, \
-        open('./endtemplate.html') as template_end, \
+    with open('./starttemplate.html', encoding='utf-8') as template_start, \
+        open('./endtemplate.html', encoding='utf-8') as template_end, \
         open(out_dir + '/' + info_dir + '/' + fname + '.html',
             'w', encoding='utf-8') as out:
         targets_str = ''
@@ -396,14 +396,15 @@ if write_info:
 
         out.write(
             '<img ' + ('usemap="#juliagrid" ' if cellcount > 1 else '')
-            + f'src="../{fname}.png" id="julia">\n' +
+            + f'src="../{fname}.png" id="julia">\n'
+            '<div id="container"><div id="content">' +
             ('<div class="targets">' if cellcount > 1 else '')
             + targets_str +
             (('</div><p>click on a cell to see the constant and the '
             'command-line invocation used to render it!') if cellcount > 1
             else '')
             + '<table class="render-info">'
-            + tr('zₙ₊₁', orig_fn)
+            + tr('z<sub>n + 1</sub>', orig_fn)
             + tr('c', strcomplex(c))
             + tr('rendered area',
                 f'({graph["x"]["min"]}, {graph["y"]["min"]}i)'
