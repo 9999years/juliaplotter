@@ -33,12 +33,21 @@ math.csc = csc
 math.cot = cot
 math.sign = sign
 
+# https://stackoverflow.com/a/14981125/5719760
+# sys module for stderr
+# import sys
+# def error(*args, **kwargs):
+    # print('ERROR: ', *args, file=sys.stderr, **kwargs)
+
+def warn(*args, **kwargs):
+    print('WARNING: ', *args, file=sys.stderr, **kwargs)
+
 # evaluate user input formula, compiled to bytecode
 def eval_fn(z, c):
     global fncode
     try:
         return eval(fncode)
-    except (ValueError, OverflowError, ZeroDivisionError):
+    except ArithmeticError:
         # negative number in a log or root probably
         # probably a user error
         return float('nan')
@@ -75,11 +84,9 @@ def signstr(num):
     else:
         return '+'
 
+#something like 0.0 - 3.2i
 def strcomplex(num):
-    return '{:8g} {} {:<8g}i'.format(
-        num.real,
-        signstr(num.imag),
-        abs(num.imag))
+    return f'{num.real:8g} {signstr(num.imag)} {abs(num.imag):<8g}i'
 
 def process_fn(fn):
     # replace stuff like 2tan(4x) with 2*tan(4*x)
@@ -96,8 +103,6 @@ def process_fn(fn):
     fn = re.sub(r'(?<!cmath\.)\b(pi|e|tau|inf|infj|nan|nanj)\b',
         r'cmath.\1', fn)
 
-    # (?<! ...)
-
     # sinz, sin z, cos c, etc.
     fn = re.sub(r'''(?<!cmath\.)\b(phase|polar|exp|log10|sqrt|acos|asin|atan|
     |cos|sin|tan|acosh|asinh|atanh|cosh|sinh|tanh|isfinite|isinf|isnan|log|
@@ -108,27 +113,42 @@ def process_fn(fn):
     |cos|sin|tan|acosh|asinh|atanh|cosh|sinh|tanh|isfinite|isinf|isnan|log|
     |rect|isclose)\(''', r'cmath.\1(', fn)
 
+    # so stuff like x(x - 3) works as expected
+    fn = re.sub(r'([zc])\s+\(', r'\1 * (', fn)
     # so stuff like log(x)sin(x) works as expected
-    fn = re.sub(r'(\w|\))\s+(\w|\()', r'\1 * \2', fn)
+    fn = re.sub(r'\)\s*(\w)', r') * \1', fn)
 
     # replace ^ with **
     fn = re.sub(r'\^', r'**', fn)
 
+    z = 0
+    c = 0
+    try:
+        eval(fn)
+    except ArithmeticError:
+        warn('Evaluation of function fails at z = 0, c = 0! This might be a '
+            'symptom of a larger problem, or simply a harmless asymptote. '
+            'Continuing execution')
+
     return fn
 
+# so i can nicely format my help messages and not worry about weird
+# formatting for the user (sorry!)
 def desc(description):
     if description[0] == '\n':
         return description[1:].replace('\n', ' ')
     else:
         return description.replace('\n', ' ')
 
+# set up arguments
 parser = argparse.ArgumentParser(
     description='Render an arbitrary Julia set or a grid of Julia sets'
     'with differing constants c from a user-entered equation.'
 )
 
 parser.add_argument('--fn', '-f', metavar='zₙ₊₁', type=str,
-    default='z**2 + c', help='''The Julia set's function for iteration.''')
+    default='z**2 + c', help=desc('''
+The Julia set's function f(z) to iterate over values of zₙ.'''))
 
 parser.add_argument('-c', metavar='constant', type=str,
     default='0', help=desc('''
@@ -213,6 +233,11 @@ Don't shell out to `magick` to convert the .ppm to a .png after rendering.'''))
 parser.add_argument('--no-open', action='store_false', help=desc('''
 Don't open HTML output in a browser after completing rendering.'''))
 
+parser.add_argument('-s', '--silent', action='store_true', help=desc('''
+Don't log info, show progress, convert the .ppm to a .png, or open the file.
+Equivalent to `--no-open --no-convert --no-progress --no-info`.'''))
+
+# parse arguments, extract variables
 args = parser.parse_args()
 
 aspect     = args.aspect
@@ -223,26 +248,32 @@ center     = args.center
 cutoff     = args.cutoff
 fn         = args.fn
 iterations = args.iterations
+# correct coloring for iterations so that coloring is same at different
+# iterations. stumbled upon this fix by accident (guessing), no clue why it
+# works honestly
 colorscale = args.gradient * iterations / 32
 width      = args.width
 zoom       = args.zoom
 info_dir   = args.info_dir_name
 out_dir    = args.output
 no_render  = args.no_render
-fname = args.filename
+fname      = args.filename
 show_prog  = args.no_progress
 write_info = args.no_info
 convert    = args.no_convert
 open_html  = args.no_open
 
+if args.silent:
+    show_prog = write_info = convert = open_html = False
+
 def zero_warning(var, extra=''):
-    print('WARNING: ' + var + ' is ZERO. Ignoring. ' + extra)
+    warn(var + ' is ZERO. Ignoring. ' + extra)
 
 def neg_warning(var, extra=''):
-    print('WARNING: ' + var + ' is NEGATIVE.'
+    warn(var + ' is NEGATIVE.'
         + 'This makes no sense, using absolute value instead. ' + extra)
 
-# validation
+# validate arguments to prevent weird nonsense / errors
 if aspect == 0:
     zero_warning('aspect')
     aspect = 1
@@ -293,48 +324,61 @@ elif zoom < 0:
     neg_warning('zoom')
     zoom = abs(zoom)
 
+# save original function, process to be usable and compile
 orig_fn = fn
 fn = process_fn(fn)
 
-fncode = compile(fn, '<string>', 'eval')
+try:
+    fncode = compile(fn, '<string>', 'eval')
+except (SyntaxError, ValueError):
+    raise Exception('Invalid function. This might be my fault or yours.\n'
+        f'Processed equation: {fn}')
+    exit()
 
+# if the user wants a random c, generate one and tell them about it
 if c.lower() == 'random':
     from random import random
     c = 2 * random() - 1 + 2j * random() - 1j
     print('c = {}'.format(strcomplex(c)))
 else:
+    # otherwise, parse the user's c and store in `c`
     c = re.sub('\s', '', c)
     c = re.sub('i', 'j', c)
     c = complex(c)
 
+# aspect = width / height ⇒ height = width / aspect
+# should be an int so the iteration stuff doesn't explode
 height = int(width / aspect)
+# more accuracy if we don't int-ify these (probably)
 rowheight = height / cellcount
 colwidth  = width  / cellcount
 
-cutoff = 30
-
+# two args for center variables
 c_x = center[0]
 c_y = center[1]
+
+# so that a higher zoom = a smaller graph
 spread = 1 / zoom
 
 graph = {
     'x': {
+        # make sure the graph isn't stretched
         'min': c_x - spread * aspect,
         'max': c_x + spread * aspect,
-        'c': 0
+        'c':   c_x
     },
     'y': {
         'min': c_y - spread,
         'max': c_y + spread,
-        'c': 0
+        'c':   c_y
     }
 }
 
-graph['x']['c'] = (graph['x']['max'] + graph['x']['min']) / 2
-graph['y']['c'] = (graph['y']['max'] + graph['y']['min']) / 2
-
+# it seems terrible that there's no better way to initialize a 2d array!
+# anyways this reads backwards and keys are addressed as cgrid[x][y]
 cgrid = [[0 for y in range(cellcount)] for x in range(cellcount)]
-#cgrid[x][y]
+
+# here, we can generate the values inline. neat!
 yticks = [int((y + 1) * rowheight) for y in range(cellcount - 1)]
 xticks = [int((x + 1) * colwidth ) for x in range(cellcount - 1)]
 
@@ -349,21 +393,35 @@ for row in range(cellcount):
             localc += 2 * crange * col / (cellcount - 1) - crange
         cgrid[col][row] = localc + localy*1j
 
-# unix_time.ppm
+# unix timestamp is the base filename
 fname = fname or str(int(time.time()))
+# output it for future reference (if needed)
 print('the time is ' + fname)
 
+# write html if requested
+# interestingly, we do this before actually generating the image
 if write_info:
+    # get template information. js and css are just linked to, although they
+    # rely on writing the html two directories below this directory (usually
+    # in ./output/info)
     with open('./starttemplate.html') as template_start, \
         open('./endtemplate.html') as template_end, \
         open(out_dir + '/' + info_dir + '/' + fname + '.html',
             'w', encoding='utf-8') as out:
-        targets_str = ''
+        # targets is a string containing info to replicate the render or
+        # parts of the render. it contains <div>s for each row / col wrapped
+        # in a div.targets if cellcount > 1 with the cli invocation, or just
+        # one not in a div.targets if cellcount = 1
+        targets = ''
         out.write(template_start.read())
         if cellcount > 1:
             out.write('<map name="juliagrid" id="juliamap">')
+            targets += '<div class="targets">'
             for row in range(cellcount):
                 for col in range(cellcount):
+                    # write an image map with an area for each row/col. then
+                    # when clicked, the relevant info from targets is shown
+                    # (displayed in a :target css selector, hidden by default)
                     out.write(
                         '<area shape="rect" coords="' + ','.join(
                         [str(int(colwidth  *  col)) #top left
@@ -372,7 +430,7 @@ if write_info:
                         ,str(int(rowheight * (row + 1)))])
                         + f'" href="#{col + 1}-{row + 1}">\n'
                     )
-                    targets_str += (
+                    targets += (
                         f'<div id="{col + 1}-{row + 1}">column {col + 1}, '
                         f'row {row + 1}: c = {strcomplex(cgrid[col][row])}'
                         '<p><code>python julia.py '
@@ -382,8 +440,10 @@ if write_info:
                         f'-g {colorscale} -u {cutoff}</code></div>\n'
                     )
             out.write('</map>\n')
+            targets += ('</div><p>click on a cell to see the constant and the '
+                'command-line invocation used to render it!')
         else:
-            targets_str = (
+            targets = (
                 '<p><code>python julia.py '
                 f'-f "{orig_fn}" -c "{strcomplex(cgrid[0][0])}" '
                 f'-i {iterations} -w {width} -a {aspect} '
@@ -394,14 +454,11 @@ if write_info:
         def tr(one, two):
             return f'<tr><td>{one}</td><td>{two}</td></tr>'
 
+        # table with general render info
         out.write(
             '<img ' + ('usemap="#juliagrid" ' if cellcount > 1 else '')
             + f'src="../{fname}.png" id="julia">\n' +
-            ('<div class="targets">' if cellcount > 1 else '')
-            + targets_str +
-            (('</div><p>click on a cell to see the constant and the '
-            'command-line invocation used to render it!') if cellcount > 1
-            else '')
+            + targets
             + '<table class="render-info">'
             + tr('zₙ₊₁', orig_fn)
             + tr('c', strcomplex(c))
@@ -417,31 +474,39 @@ if write_info:
             + '</table>'
             + template_end.read())
 
+# if we're just regenerating the info, we're done
 if no_render:
     exit()
 
+# abstraction for ppm writing
 def write_pixel(r, g, b, f):
     f.write(bytes([r, g, b]))
 
+# formatting time-deltas in reasonable strings (why isn't this easier /
+# built-in????)
 def strtimedelta(time):
     return (f'{math.floor(time.seconds / 3600):02d}:'
         f'{math.floor((time.seconds % 3600) / 60):02d}:'
         f'{time.seconds % 60:02d}.{math.floor(time.microseconds / 1000):03d}')
 
 with open(out_dir + '/' + fname + '.ppm', 'wb') as out:
-    out.write(bytes('P6\n{} {}\n255\n'.format(width, height),
-        encoding='ascii'))
-    z: complex
-    z_p: complex
-    i: int
-    color: float
+    # magic numbers, etc
+    out.write(bytes(f'P6\n{width} {height}\n255\n', encoding='ascii'))
+    # initialize relevant variables
+    z:      complex
+    z_p:    complex
+    color:  float
     graphy: float
-    row: int = 0
-    col: int = 0
+    i:      int
+    row:    int = 0
+    col:    int = 0
+    # for eta and total elapsed time estimation
     start = datetime.now()
 
+    # iterate top to bottom
     for y in range(0, height):
 
+        # if eta / % info requested, show it!
         if show_prog:
             # eta prediction, % done
             now = datetime.now()
@@ -454,31 +519,46 @@ with open(out_dir + '/' + fname + '.ppm', 'wb') as out:
                     f'{100 * doneamt: >6.3f}% done, eta ≈ {strtimedelta(eta)}'
                 ), end='\r')
 
+        # y component is the same for every x-coord, so we pre-calculate it
         graphy = stgY(y) * 1j
+        # increment row if necessary, excepting moving past the edge of the
+        # image
         if row != cellcount - 1 and y == yticks[row]:
             row += 1
 
+        # we only *increment* the col index, so we have to reset it each row
         col = 0
         for x in range(0, width):
             if col != cellcount - 1 and x == xticks[col]:
                 col += 1
 
+            # z_0 is based on x and y coords
+            # remember, stgX and stgY take columns and rows into account
             z_p = z = stgX(x) + graphy
             i = 0
             # smooth coloring using exponents????
             color = math.exp(-abs(z))
+            # iterate, breaking if we exceed the orbit threshold
             for i in range(0, iterations):
                 z = eval_fn(z, cgrid[col][row])
                 if cmath.isnan(z) or not cmath.isfinite(z):
                     # oh no
-                    z = 1
+                    # i can blame this on the user right?
+                    z = z_p
                     break
                 elif abs(z) > cutoff:
                     break
                 z_p = z
                 color += math.exp(-abs(z))
 
+            # color is in the range of [0, iterations], so we have to
+            # normalize it
             color /= iterations
+            # we have way more magnitude info than can be expressed with 255
+            # discrete values, so we oscillate light and dark as magnitude
+            # increases, for a variety of colors. by scaling the blue
+            # oscillator slightly longer and the red slightly shorter, we
+            # get a nice rainbow!
             write_pixel(
                 int(255 * math.sin(color * colorscale * 9 ) ** 2),
                 int(255 * math.sin(color * colorscale * 10) ** 2),
@@ -486,21 +566,24 @@ with open(out_dir + '/' + fname + '.ppm', 'wb') as out:
                 out
             )
 
+    # time elapsed
     end = datetime.now()
     print(f'Done! Completed in {strtimedelta(end - start)}')
 
 if convert:
     # convert ppm to png (if requested, by default on)
+    # don't load these libraries unless needed
     from subprocess import run
     import os
     print(f'Converting {fname}.ppm to {fname}.png')
     run(['magick', 'mogrify', '-format', 'png', f'{out_dir}/{fname}.ppm'])
     os.remove(f'{out_dir}/{fname}.ppm')
+
 if open_html:
+    # this works very smoothly, which is nice! thanks python!
     import webbrowser
     from urllib.request import pathname2url
-    webbrowser.open('file:'
-        + pathname2url(os.path.abspath(
-            f'{out_dir}/{info_dir}/{fname}.html'
-        ))
-    )
+    # only used once but oh boy does it make the code nicer
+    def abspath(filename):
+        return 'file:' + pathname2url(os.path.abspath(filename))
+    webbrowser.open(abspath(f'{out_dir}/{info_dir}/{fname}.html'))
