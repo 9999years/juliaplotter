@@ -399,13 +399,13 @@ fname = fname or str(int(time.time()))
 print('the time is ' + fname)
 
 # write html if requested
-# interestingly, we do this before actually generating the image
+# perhaps interestingly, we do this before actually generating the image
 if write_info:
     # get template information. js and css are just linked to, although they
     # rely on writing the html two directories below this directory (usually
     # in ./output/info)
-    with open('./starttemplate.html') as template_start, \
-        open('./endtemplate.html') as template_end, \
+    with open('./starttemplate.html', encoding='utf-8') as template_start, \
+        open('./endtemplate.html', encoding='utf-8') as template_end, \
         open(out_dir + '/' + info_dir + '/' + fname + '.html',
             'w', encoding='utf-8') as out:
         # targets is a string containing info to replicate the render or
@@ -439,10 +439,11 @@ if write_info:
                         f'-e {args.center[0]} {args.center[1]} -z {zoom} '
                         f'-g {colorscale} -u {cutoff}</code></div>\n'
                     )
-            out.write('</map>\n')
+            out.write('</map>\n<img usemap="#juliagrid" ')
             targets += ('</div><p>click on a cell to see the constant and the '
                 'command-line invocation used to render it!')
         else:
+            out.write('<img ')
             targets = (
                 '<p><code>python julia.py '
                 f'-f "{orig_fn}" -c "{strcomplex(cgrid[0][0])}" '
@@ -456,15 +457,15 @@ if write_info:
 
         # table with general render info
         out.write(
-            '<img ' + ('usemap="#juliagrid" ' if cellcount > 1 else '')
-            + f'src="../{fname}.png" id="julia">\n' +
+            f'src="../{fname}.png" id="julia">\n'
+            + '<div id="container"><div id="contents">\n'
             + targets
-            + '<table class="render-info">'
-            + tr('zₙ₊₁', orig_fn)
-            + tr('c', strcomplex(c))
+            + '<table class="render-info">\n'
+            + tr('z<sub>n + 1</sub>(z, c) =', orig_fn)
+            + tr('c =', strcomplex(c))
             + tr('rendered area',
-                f'({graph["x"]["min"]}, {graph["y"]["min"]}i)'
-                f' to ({graph["x"]["max"]}, {graph["y"]["max"]}i)')
+                f'({graph["x"]["min"]}, {graph["y"]["min"]}i) '
+                f'to ({graph["x"]["max"]}, {graph["y"]["max"]}i)')
             + tr('center', f'({graph["x"]["c"]}, {graph["y"]["c"]}i)')
             + tr('zoom', f'{zoom}×')
             + tr('gradient speed', colorscale)
@@ -583,7 +584,8 @@ if open_html:
     # this works very smoothly, which is nice! thanks python!
     import webbrowser
     from urllib.request import pathname2url
-    # only used once but oh boy does it make the code nicer
+    # only used once but boy oh boy does it make the code nicer
     def abspath(filename):
         return 'file:' + pathname2url(os.path.abspath(filename))
+    
     webbrowser.open(abspath(f'{out_dir}/{info_dir}/{fname}.html'))

@@ -44,7 +44,8 @@ a:hover {
 }
 
 img#julia {
-	margin-bottom: 1em;
+	display: block;
+	margin: 0 auto 1em auto;
 	max-width: 100%;
 }
 
@@ -65,4 +66,7 @@ table.render-info td {
 }
 
 @media (max-width: 650px) {
+	#container {
+		margin: 25px 25px;
+	}
 }
