@@ -79,7 +79,7 @@ def strcomplex(num):
     return '{:8g} {} {:<8g}i'.format(
         num.real,
         signstr(num.imag),
-        abs(num.imag))
+        abs(num.imag)).strip()
 
 def process_fn(fn):
     # replace stuff like 2tan(4x) with 2*tan(4*x)
@@ -404,8 +404,8 @@ if write_info:
             'command-line invocation used to render it!') if cellcount > 1
             else '')
             + '<table class="render-info">'
-            + tr('z<sub>n + 1</sub>', orig_fn)
-            + tr('c', strcomplex(c))
+            + tr('z<sub>n + 1</sub>(z, c) =', orig_fn)
+            + tr('c =', strcomplex(c))
             + tr('rendered area',
                 f'({graph["x"]["min"]}, {graph["y"]["min"]}i)'
                 f' to ({graph["x"]["max"]}, {graph["y"]["max"]}i)')
