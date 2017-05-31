@@ -93,12 +93,12 @@ def process_fn(fn):
     fn = re.sub(r'(\d+)([a-zA-Z]+)', r'\1 * \2', fn)
 
     # ln = log
-    fn = re.sub(r'ln', r'log', fn)
+    fn = re.sub('ln', 'log', fn)
 
     # when you type (x + 2)(x - 2) you probably meant to multiply them right?
     fn = re.sub(r'\)\s*\(', r')*(', fn)
 
-    fn = re.sub(r'π', r'pi', fn)
+    fn = re.sub('π', 'pi', fn)
 
     fn = re.sub(r'(?<!cmath\.)\b(pi|e|tau|inf|infj|nan|nanj)\b',
         r'cmath.\1', fn)
@@ -587,5 +587,5 @@ if open_html:
     # only used once but boy oh boy does it make the code nicer
     def abspath(filename):
         return 'file:' + pathname2url(os.path.abspath(filename))
-    
+
     webbrowser.open(abspath(f'{out_dir}/{info_dir}/{fname}.html'))
