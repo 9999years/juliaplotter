@@ -6,18 +6,60 @@ required in path), and pretty-by-default HTML export.
 
 ## Why?
 
-* **Low memory requirements** — Instead of storing the image data  an array
-  before writing it, it’s written one byte at a time. This means that rendering
-  a 65536×65536 image takes up just as much (run-time) memory as rendering a
-  500×500 image.
-* **Flexibility** — Any formula is accepted, with fairly versatile equation
-  parsing.
+**Low memory requirements** — Instead of storing the image data  an array before
+writing it, it’s written one byte at a time. This means that rendering a
+65536×65536 image takes up just as much (run-time) memory as rendering a 500×500
+image.
+
+**Flexibility** — Any formula is accepted, with fairly versatile equation
+parsing.
+
+**Grid rendering** — This Julia plotter contains a built-in system for rendering
+*grids* of Julia sets. Why? Because the same equation that makes this very
+interesting image:
+
+![Julia set for f(z) = (z-c)(z+2-0.5i)(z+0.5c)(z), c =
+0.9i](https://i.imgur.com/4QQRShw.png)
+
+    julia.py -f "(z-c)(z+2-0.5i)(z+0.5c)(z)" -c " 0 + 0.9 i" -i 32 -w 2048 -a 1.0 -e 0.0 0.0 -z 1.0 -g 1.0 -u 30.0
+
+Creates this very uninteresting image:
+
+![Julia set for f(z) = (z-c)(z+2-0.5i)(z+0.5c)(z), c = 0.3 +
+0.3i](https://i.imgur.com/76RVZby.png)
+
+    julia.py -f "(z-c)(z+2-0.5i)(z+0.5c)(z)" -c "0.3 + 0.3 i" -i 32 -w 2048 -a 1.0 -e 0.0 0.0 -z 0.75 -g 1.0 -u 30.0
+
+These two sets are in the same *family* of equations, but have a different
+constant *c*. With the `-n cells` option, `julia.py` will render a grid of
+cells × cells sets with c-values ranging from -range to range in the real axis,
+and -range·i to range·i in the imaginary axis, where the range is controlled
+with the `-r range` option. We may discover which constants are interesting and
+which are not with a preliminary render:
+
+![Grid of Julia sets for f(z) = (z-c)(z+2-0.5i)(z+0.5c)(z)](https://i.imgur.com/fs6Fuv6.png)
+
+    julia.py -f "(z-c)(z+2-0.5i)(z+0.5c)(z)" -n 11 -i 32 -w 2048 -a 1.0
+    -e 0 0 -z 0.5 -g 1.0 -u 30
+
+## General Usage
 
 ```
 usage: julia.py [-h] [--fn zₙ₊₁] [-c constant] [-a aspect] [-w width]
                 [-i iterations] [-r c-range] [-e center center]
                 [-n cell count] [-z zoom] [-g gradient speed] [-u escape]
 ```
+
+## Example Renders
+
+![Julia set for f(z) = (z^3)/(((z-2)^5)(z+0.5i)) + c, c = 7/6 +
+1/6i](https://i.imgur.com/dEbYTN8.png)
+
+    ./julia.py -f "(z^3)/(((z-2)^5)(z+0.5i)) + c" -c " 1.16667 + 0.166667i" -i 32 -w 3840 -a 1.0 -e 2.0 0.0 -z 0.5 -g 1.0 -u 30
+
+![Julia set for f(z) = z^2 + c, c = 0.285 + 0.01i](https://i.imgur.com/So2smbd.png)
+
+    ./julia.py -c "0.285 + 0.01i" -z 0.75 -w 2048
 
 ## Arguments and options
 

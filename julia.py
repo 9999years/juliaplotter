@@ -86,11 +86,15 @@ def signstr(num):
 
 #something like 0.0 - 3.2i
 def strcomplex(num):
-    return f'{num.real:8g} {signstr(num.imag)} {abs(num.imag):<8g}i'
+    return f'{num.real:8g} {signstr(num.imag)} {abs(num.imag):<8g}i'.strip()
 
 def process_fn(fn):
+    # imaginary numbers are j
+    fn = re.sub(r'(\d|\b)i\b', r'\1j', fn)
+
     # replace stuff like 2tan(4x) with 2*tan(4*x)
-    fn = re.sub(r'(\d+)([a-zA-Z]+)', r'\1 * \2', fn)
+    # (?=j\b) excludes imaginary numbers
+    fn = re.sub(r'(\d+)(?!j\b)([a-zA-Z]+)', r'\1 * \2', fn)
 
     # ln = log
     fn = re.sub('ln', 'log', fn)
@@ -128,7 +132,9 @@ def process_fn(fn):
     except ArithmeticError:
         warn('Evaluation of function fails at z = 0, c = 0! This might be a '
             'symptom of a larger problem, or simply a harmless asymptote. '
-            'Continuing execution')
+            'Continuing execution.')
+    except:
+            print(f'Processed function: {fn}')
 
     return fn
 
@@ -433,7 +439,7 @@ if write_info:
                     targets += (
                         f'<div id="{col + 1}-{row + 1}">column {col + 1}, '
                         f'row {row + 1}: c = {strcomplex(cgrid[col][row])}'
-                        '<p><code>python julia.py '
+                        '<p><code>./julia.py '
                         f'-f "{orig_fn}" -c "{strcomplex(cgrid[col][row])}" '
                         f'-i {iterations} -w {width} -a {aspect} '
                         f'-e {args.center[0]} {args.center[1]} -z {zoom} '
@@ -445,7 +451,7 @@ if write_info:
         else:
             out.write('<img ')
             targets = (
-                '<p><code>python julia.py '
+                '<p><code>./julia.py '
                 f'-f "{orig_fn}" -c "{strcomplex(cgrid[0][0])}" '
                 f'-i {iterations} -w {width} -a {aspect} '
                 f'-e {args.center[0]} {args.center[1]} -z {zoom} '
