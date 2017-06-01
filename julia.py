@@ -12,6 +12,8 @@ import re
 import codecs
 # args? i actually might not need this
 import argparse
+# warnings
+import sys
 
 # why arent these in math in the first place?
 # we need them to make user formulae sensible
@@ -47,7 +49,7 @@ def eval_fn(z, c):
     global fncode
     try:
         return eval(fncode)
-    except ArithmeticError:
+    except (ArithmeticError, ValueError, ZeroDivisionError):
         # negative number in a log or root probably
         # probably a user error
         return float('nan')
@@ -92,10 +94,6 @@ def process_fn(fn):
     # imaginary numbers are j
     fn = re.sub(r'(\d|\b)i\b', r'\1j', fn)
 
-    # replace stuff like 2tan(4x) with 2*tan(4*x)
-    # (?=j\b) excludes imaginary numbers
-    fn = re.sub(r'(\d+)(?!j\b)([a-zA-Z]+)', r'\1 * \2', fn)
-
     # ln = log
     fn = re.sub('ln', 'log', fn)
 
@@ -108,14 +106,21 @@ def process_fn(fn):
         r'cmath.\1', fn)
 
     # sinz, sin z, cos c, etc.
-    fn = re.sub(r'''(?<!cmath\.)\b(phase|polar|exp|log10|sqrt|acos|asin|atan|
-    |cos|sin|tan|acosh|asinh|atanh|cosh|sinh|tanh|isfinite|isinf|isnan|log|
-    |rect)\s*([zc])\b''', r'\1(\2)', fn)
+    fn = re.sub(r'''(?<!cmath\.)(?:(?<=\d)|(?<=\b))(phase|polar|exp|log10|sqrt|
+    |acos|asin|atan| |cos|sin|tan|acosh|asinh|atanh|cosh|sinh|tanh|isfinite|
+    |isinf|isnan|log|rect)\s*([zc])\b''', r'cmath.\1(\2)', fn)
 
     # sin(z) ...
-    fn = re.sub(r'''(?<!cmath\.)\b(phase|polar|exp|log10|sqrt|acos|asin|atan|
+    fn = re.sub(r'''(?<!cmath\.)(?:(?<=\d)|(?<=\b))(phase|polar|exp|log10|sqrt|acos|asin|atan|
     |cos|sin|tan|acosh|asinh|atanh|cosh|sinh|tanh|isfinite|isinf|isnan|log|
     |rect|isclose)\(''', r'cmath.\1(', fn)
+
+    # replace stuff like 2tan(4x) with 2*tan(4*x)
+    # (?=j\b) excludes imaginary numbers
+    fn = re.sub(r'(\d+)(?!j\b)\s*([a-zA-Z]+)', r'\1 * \2', fn)
+
+    # 3 z c, 2.5c z
+    fn = re.sub(r'([zc])\s+([zc])', r'\1 * \2', fn)
 
     # so stuff like x(x - 3) works as expected
     fn = re.sub(r'([zc])\s+\(', r'\1 * (', fn)
@@ -129,12 +134,15 @@ def process_fn(fn):
     c = 0
     try:
         eval(fn)
-    except ArithmeticError:
+    except (ArithmeticError, ValueError):
         warn('Evaluation of function fails at z = 0, c = 0! This might be a '
             'symptom of a larger problem, or simply a harmless asymptote. '
             'Continuing execution.')
-    except:
-            print(f'Processed function: {fn}')
+    except NameError:
+        warn('Uh-oh, something is pretty seriously wrong in the function you '
+            'gave me. Continuing execution, but this is *probably* going to '
+            'explode in a moment.')
+        print(f'Processed function: {fn}')
 
     return fn
 
@@ -590,6 +598,7 @@ if open_html:
     # this works very smoothly, which is nice! thanks python!
     import webbrowser
     from urllib.request import pathname2url
+    import os
     # only used once but boy oh boy does it make the code nicer
     def abspath(filename):
         return 'file:' + pathname2url(os.path.abspath(filename))

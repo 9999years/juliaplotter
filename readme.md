@@ -1,22 +1,39 @@
 # Python Julia Plotter
 
-A script to render Julia sets or grids of Julia sets with a comfortable
-command-line interface, enabled-by-default conversion to `.png` ([`magick`][1]
-required in path), and pretty-by-default HTML export.
+A script to render [Julia sets](https://en.m.wikipedia.org/wiki/Julia_set) (the
+sets of points in the complex plane that don’t escape with the repeated
+application of a complex rational function) or grids of Julia sets with a
+comfortable command-line interface, enabled-by-default conversion to `.png`
+([`magick`][1] required in path), and pretty-by-default HTML export.
 
 ## Why?
 
-**Low memory requirements** — Instead of storing the image data  an array before
-writing it, it’s written one byte at a time. This means that rendering a
-65536×65536 image takes up just as much (run-time) memory as rendering a 500×500
-image.
+### Low memory requirements
 
-**Flexibility** — Any formula is accepted, with fairly versatile equation
-parsing.
+Instead of storing the image data  an array before writing it, it’s written one
+byte at a time. This means that rendering a 65536×65536 image takes up just as
+much (run-time) memory as rendering a 500×500 image. The raw `.ppm` output will
+take up `9 + ⌈log10(w)⌉ + ⌈log10(⌊w/a⌋)⌉ + 3w⌊w/a⌋` bytes (three per pixel plus
+a header, where `w` is the image width and `a` is the aspect ratio).
 
-**Grid rendering** — This Julia plotter contains a built-in system for rendering
-*grids* of Julia sets. Why? Because the same equation that makes this very
-interesting image:
+
+### Flexibility
+
+Any formula is accepted, with fairly versatile equation parsing.
+
+Accepted features:
+
+* Imaginary numbers in the form of (ex. `1i`, `3.2i`, `.3i`, etc.)
+* Coefficients for variables and functions (`2tan(z)`, `0.3c`, `12 pi`)
+* Implicit parenthesis (ONLY if the variable passed to a function is unmodified;
+  `tanz` and `log10 z` work, `sin z^2` will parse as `(sin z)^2`)
+* Implicit multiplication (`(z - 2)(z + c)`, `z(z - 3)`, `2c z`, `sinz tanz`)
+* Exponentiation (`z^2`, `z^-1`)
+
+### Grid rendering
+
+`julia.py` contains a built-in system for rendering *grids* of Julia sets. Why?
+Because the same equation that makes this very interesting image:
 
 ![Julia set for f(z) = (z-c)(z+2-0.5i)(z+0.5c)(z), c =
 0.9i](https://i.imgur.com/4QQRShw.png)
@@ -42,6 +59,15 @@ which are not with a preliminary render:
     julia.py -f "(z-c)(z+2-0.5i)(z+0.5c)(z)" -n 11 -i 32 -w 2048 -a 1.0
     -e 0 0 -z 0.5 -g 1.0 -u 30
 
+(Aside: Although it might look it at first, the grid is not symmetrical over the
+real or imaginary axis.)
+
+`julia.py` will then automatically open the HTML output, allowing us to click on
+an interesting cell and copy the command-line invocation to create a more
+detailed render.
+
+![Screenshot of HTML output](https://i.imgur.com/DmS6fex.png)
+
 ## General Usage
 
 ```
@@ -55,7 +81,7 @@ usage: julia.py [-h] [--fn zₙ₊₁] [-c constant] [-a aspect] [-w width]
 ![Julia set for f(z) = (z^3)/(((z-2)^5)(z+0.5i)) + c, c = 7/6 +
 1/6i](https://i.imgur.com/dEbYTN8.png)
 
-    ./julia.py -f "(z^3)/(((z-2)^5)(z+0.5i)) + c" -c " 1.16667 + 0.166667i" -i 32 -w 3840 -a 1.0 -e 2.0 0.0 -z 0.5 -g 1.0 -u 30
+    ./julia.py -f "(z^3)/(((z-2)^5)(z+0.5i)) + c" -c " 1.16667 + 0.166667i" -i 32 -w 2048 -a 1.0 -e 2.0 0.0 -z 0.5 -g 1.0 -u 30
 
 ![Julia set for f(z) = z^2 + c, c = 0.285 + 0.01i](https://i.imgur.com/So2smbd.png)
 
