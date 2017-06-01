@@ -1,3 +1,18 @@
+# Python Julia Plotter
+
+A script to render Julia sets or grids of Julia sets with a comfortable
+command-line interface, enabled-by-default conversion to `.png` ([`magick`][1]
+required in path), and pretty-by-default HTML export.
+
+## Why?
+
+* **Low memory requirements** — Instead of storing the image data  an array
+  before writing it, it’s written one byte at a time. This means that rendering
+  a 65536×65536 image takes up just as much (run-time) memory as rendering a
+  500×500 image.
+* **Flexibility** — Any formula is accepted, with fairly versatile equation
+  parsing.
+
 ```
 usage: julia.py [-h] [--fn zₙ₊₁] [-c constant] [-a aspect] [-w width]
                 [-i iterations] [-r c-range] [-e center center]
@@ -5,6 +20,10 @@ usage: julia.py [-h] [--fn zₙ₊₁] [-c constant] [-a aspect] [-w width]
 ```
 
 ## Arguments and options
+
+The following is an enumeration of most of the useful and common arguments.
+There are a few others and this readme may fall slightly out of date — view the
+most up-to-date and complete list with `-h` or `--help`.
 
 ### `--fn zₙ₊₁, -f zₙ₊₁`
 
@@ -52,14 +71,4 @@ How zoomed in the render is. The distance between the center-point and the top /
 bottom of the rendered area is 1 / zoom. Larger values of will produce a more
 zoomed-in image, smaller values (<1) will produce a more zoomed-out image.
 
-### `-g gradient speed, --gradient gradient speed`
-
-The plotter colors images by smoothly interpolating the orbit escape times for
-each value of z₀ in the, governed by a sine function. This option adds a
-multiplier within the sine function to increase the oscillation speed, which may
-help to enhance details in lightly colored images.
-
-### `-u escape, --cutoff escape, --escape-radius escape`
-
-The orbit escape radius — how large |zₙ| must be before it's considered to have
-diverged. Usually ≈ 30 for Julia sets, 2 for the Mandelbrot set.
+[1]: https://www.imagemagick.org/script/index.php
