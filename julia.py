@@ -82,6 +82,56 @@ def strcomplex(num):
         abs(num.imag))
 
 def process_fn(fn):
+    if fn.lower() == 'random':
+        # general case:
+        # https://gist.github.com/9999years/7d9430d08cba96c928b5631293dde33e
+        import random
+
+        def get_coef(imag=True):
+            max_coef = 20
+            coef = (random.random() - 0.5) * max_coef
+            if imag:
+                coef += get_coef(imag=False) * 1j
+            return coef
+
+        def term(deg, variables, consts, imag):
+            deg = random.randint(0, deg)
+            ret = '('
+            var = 'z'
+            coef = get_coef(imag)
+            if deg != 0:
+                ret += f'{var}'
+                if deg > 1:
+                    ret += f'^{deg} '
+                else:
+                    ret += ' '
+                ret += f'{signstr(coef)} {abs(coef):.3f}'
+            else:
+                ret += f'{coef:.3f}'
+            ret += f'{random.choice(consts)})'
+            return (deg, ret)
+
+        def poly(deg, variables, consts, imag):
+            ret = ""
+            i = 0
+            while i < random.randrange(1, deg):
+                (degtmp, rtmp) = term(deg, variables, consts, imag)
+                i += degtmp
+                ret += rtmp
+            return ret
+
+        def rational(deg, variables, consts, imag):
+            ret = poly(deg, variables, consts, imag)
+            if random.random() > 0.3:
+                ret += f'/({poly(deg, variables, consts, imag)})'
+            return ret
+
+        degree    = 5
+        variables = ['z']
+        consts    = ['c', '']
+        imag      = True
+        return rational(degree, variables, consts, imag)
+
     # replace stuff like 2tan(4x) with 2*tan(4*x)
     fn = re.sub(r'(\d+)([a-zA-Z]+)', r'\1 * \2', fn)
 
@@ -128,7 +178,10 @@ parser = argparse.ArgumentParser(
 )
 
 parser.add_argument('--fn', '-f', metavar='zₙ₊₁', type=str,
-    default='z**2 + c', help='''The Julia set's function for iteration.''')
+    default='z^2 + c', help=desc('''
+The Julia set's function for iteration. Enter `random` to generate a random
+rational function P(z)/Q(z), where P(z) and Q(z) are polynomials of up to degree
+5.'''))
 
 parser.add_argument('-c', metavar='constant', type=str,
     default='0', help=desc('''

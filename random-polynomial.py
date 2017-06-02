@@ -1,22 +1,9 @@
-# floor mostly, some assorted stuff
+# sign funcs
 import math
-# misc for actually evaluating the julia equations
-import cmath
-# turning user input into an eval-able formula
-import re
-# file writing
-import codecs
-# args? i actually might not need this
+# cli arguments
 import argparse
-# warnings
-import sys
-# making directories, deleting the .ppm after conversion, resolving paths
-import os
 # random rationals
 import random
-
-def warn(*args, **kwargs):
-    print('WARNING: ', *args, file=sys.stderr, **kwargs)
 
 def sign(x):
     return math.copysign(1, x)
@@ -31,56 +18,69 @@ def signstr(num):
 
 # set up arguments
 parser = argparse.ArgumentParser(
-    description='Render an arbitrary Julia set or a grid of Julia sets'
-    'with differing constants c from a user-entered equation.'
+    description='Generate a random rational function.'
 )
 
-parser.add_argument('--degree', '-d', position=1, metavar='degree', type=int,
-    default='5', help='The polynomial’s maximum degree.')
+parser.add_argument('--degree', '-d', metavar='degree', type=int,
+    default=5, help='The polynomial’s maximum degree.')
 
-parser.add_argument('--variables', '-v', position=1, metavar='var', type=str,
-    nargs='+', default='x', help='An array of variables to use.')
+parser.add_argument('--variables', '-v', metavar='var', type=str,
+    nargs='+', default=['x'], help='An array of variables to use.')
 
-parser.add_argument('--constants', '-c', position=1, metavar='const', type=str,
-    nargs='+', default='x', help='An array of constants to use.')
+parser.add_argument('--constants', '-c', metavar='const', type=str,
+    nargs='+', default=['c'], help='An array of constants to use.')
 
-parser.add_argument('--imaginary', '-i', position=1, action='store_true',
+parser.add_argument('--imaginary', '-i', action='store_true',
     help='Use imaginary numbers.')
 
 # parse arguments, extract variables
 args = parser.parse_args()
 
-degree = args.degree
-vars   = args.variables
-consts = args.constants
-imag   = args.imaginary
+degree    = args.degree
+variables = args.variables
+consts    = args.constants
+imag      = args.imaginary
 
-top = ""
+consts += ['']
 
 def get_coef(imag):
     max_coef = 20
-    coef = (rand.random() - 0.5) * max_coef
+    coef = (random.random() - 0.5) * max_coef
     if imag:
         coef += get_coef(False) * 1j
     return coef
 
-def term(deg, vars, consts, imag):
-    ret = "("
-    deg = rand.randint(0, deg)
-    var = rand.choice(vars)
+def term(deg, variables, consts, imag):
+    deg = random.randint(0, deg)
+    ret = '('
+    var = random.choice(variables)
     coef = get_coef(imag)
-    ret += (f'({rand.choice(vars)}^{deg}'
-        f'{signstr(coef)} ({coef}){rand.choice(consts)})')
+    if deg != 0:
+        ret += f'{var}'
+        if deg > 1:
+            ret += f'^{deg} '
+        else:
+            ret += ' '
+        ret += f'{signstr(coef)} {abs(coef):.3f}'
+    else:
+        ret += f'{coef:.3f}'
+    ret += f'{random.choice(consts)})'
     return (deg, ret)
 
-def poly(deg, vars, consts, imag):
+def poly(deg, variables, consts, imag):
     ret = ""
-    while i < rand.randrange(deg):
-        (degtmp, rtmp) = term(deg, vars, consts, imag)
+    i = 0
+    while i < random.randrange(1, deg):
+        (degtmp, rtmp) = term(deg, variables, consts, imag)
         i += degtmp
         ret += rtmp
+    return ret
 
-def rational(deg, vars, consts, imag):
-    return f'{poly(deg, vars, consts, imag)}/({poly(deg, vars, consts, imag)})'
+def rational(deg, variables, consts, imag):
+    ret = poly(deg, variables, consts, imag)
+    if random.random() > 0.3:
+        ret += f'/({poly(deg, variables, consts, imag)})'
+    return ret
 
-print(rational(degree, vars, consts, imag))
+
+print(rational(degree, variables, consts, imag))
