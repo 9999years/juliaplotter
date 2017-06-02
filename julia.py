@@ -162,17 +162,18 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument('--fn', '-f', metavar='zₙ₊₁', type=str,
     default='z**2 + c', help=desc('''
-The Julia set's function f(z) to iterate over values of zₙ.'''))
+The Julia set's function f(z) to iterate over values of zₙ. Default: z^2 +
+c'''))
 
 parser.add_argument('-c', metavar='constant', type=str,
     default='0', help=desc('''
 The constant c for the function zₙ₊₁(z, c). Enter `random` to select a random
-value for c.'''))
+value for c. Default: 0 + 0i'''))
 
 parser.add_argument('-a', '--aspect', metavar='aspect', type=float,
     default=1.0, help=desc('''
 The output image's w/h aspect ratio.  Ex.: -a 2 implies an image twice as wide
-as it is tall.'''))
+as it is tall. Default: 1.0'''))
 
 parser.add_argument('-w', '--width', metavar='width', type=int,
     default='500', help='''The output image\'s width.''')
@@ -185,45 +186,49 @@ parser.add_argument('-r', '--c-range', metavar='c-range', type=float,
 The range of c values to use --- only relevant if the cell count option is used
 to render a grid of sets; the c values for each sets will range from (c_r -
 crange, c_i - crange·i) to (c_r + crange, c_i + crange·i), where c_r and c_i
-are the real and imaginary components of the constant supplied with -c.'''))
+are the real and imaginary components of the constant supplied with -c. Default:
+1.5'''))
 
 parser.add_argument('-e', '--center', metavar='center', type=float,
     default=[0, 0], nargs=2, help=desc('''
 The coordinate the graph is centered around, entered as two floats separated by
-a space. (Not a comma! No parenthesis!)'''))
+a space. (Not a comma! No parenthesis!) Default: 0 0'''))
 
 parser.add_argument('-n', '--cell-count', metavar='cell count', type=int,
     default=1, help=desc('''
 The number of rows and columns to render. A cell count of 1 will render a
 single set, and other values will render grids of Julia sets. The different
-values of c are determined by --c-range or -r.'''))
+values of c are determined by --c-range or -r. Default: 1'''))
 
 parser.add_argument('-z', '--zoom', metavar='zoom', type=float,
     default=1, help=desc('''
 How zoomed in the render is. The distance between the center-point and the top
 / bottom of the rendered area is 1 / zoom. Larger values of will produce a more
-zoomed-in image, smaller values (<1) will produce a more zoomed-out image.'''))
+zoomed-in image, smaller values (<1) will produce a more zoomed-out image.
+Default: 1'''))
 
 parser.add_argument('-g', '--gradient', metavar='gradient speed', type=float,
     default=1, help=desc('''
 The plotter colors images by smoothly interpolating the orbit escape times for
 each value of z₀ in the, governed by a sine function. This option adds a
 multiplier within the sine function to increase the oscillation speed, which
-may help to enhance details in lightly colored images.'''))
+may help to enhance details in lightly colored images. Default: 1.0'''))
 
 parser.add_argument('-u', '--cutoff', '--escape-radius',
     metavar='escape', type=float, default=30, help=desc('''
 The orbit escape radius --- how large |zₙ| must be before it's considered to
-have diverged. Usually ≈ 30 for Julia sets, 2 for the Mandelbrot set.'''))
+have diverged. Usually ≈ 30 for Julia sets, 2 for the Mandelbrot set. Default:
+30.0'''))
 
 parser.add_argument('-o', '--output', metavar='directory', type=str,
-    default='./output/', help='Output directory to write images to.')
+        default='./output/', help=desc('''
+Output directory to write images to. Default: ./output/'''))
 
 parser.add_argument('--info-dir-name',
-    metavar='directory', type=str, default='info', help=desc('''
-Directory to write information files to. Is always a first-level directory
-within the output directory, and changing it will probably mess up HTML
-output.'''))
+    metavar='directory', type=str, default='./info/', help=desc('''
+Directory to write information files to, relative to the output directory. Is
+always a first-level directory within the output directory, and changing it will
+probably mess up HTML output. Default: ./info/'''))
 
 parser.add_argument('--no-info', action='store_false',
     help='''Don't write the HTML info file.''')
@@ -238,8 +243,8 @@ Don't output progress percentage and finish ETA. May increase
 performance.'''))
 
 parser.add_argument('--filename', metavar='pathspec', type=str, help=desc('''
-Filename base for the output image. Defaults to the Unix timestamp. Relative to
-the output directory. Shouldn't include extensions.'''))
+Filename base for the output image. Relative to the output directory. Shouldn't
+include extensions. Defaults: The current Unix timestamp'''))
 
 parser.add_argument('--no-convert', action='store_false', help=desc('''
 Don't shell out to `magick` to convert the .ppm to a .png after rendering.'''))

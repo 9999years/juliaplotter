@@ -38,14 +38,18 @@ Because the same equation that makes this very interesting image:
 ![Julia set for f(z) = (z-c)(z+2-0.5i)(z+0.5c)(z), c =
 0.9i](https://i.imgur.com/4QQRShw.png)
 
-    julia.py -f "(z-c)(z+2-0.5i)(z+0.5c)(z)" -c " 0 + 0.9 i" -i 32 -w 2048 -a 1.0 -e 0.0 0.0 -z 1.0 -g 1.0 -u 30.0
+    ./julia.py -f "(z-c)(z+2-0.5i)(z+0.5c)(z)" -c "0 + 0.9 i" -i 32 -w 2048 -a 1.0 -e 0.0 0.0 -z 1.0 -g 1.0 -u 30.0
+
+(Note: Most of those arguments are superfluous, but are outputted in case
+defaults change. The actual rendering command was something much closer to
+`./julia.py -f "(z-c)(z+2-0.5i)(z+0.5c)(z)" -c "0 + 0.9 i" -w 2048`)
 
 Creates this very uninteresting image:
 
 ![Julia set for f(z) = (z-c)(z+2-0.5i)(z+0.5c)(z), c = 0.3 +
 0.3i](https://i.imgur.com/76RVZby.png)
 
-    julia.py -f "(z-c)(z+2-0.5i)(z+0.5c)(z)" -c "0.3 + 0.3 i" -i 32 -w 2048 -a 1.0 -e 0.0 0.0 -z 0.75 -g 1.0 -u 30.0
+    ./julia.py -f "(z-c)(z+2-0.5i)(z+0.5c)(z)" -c "0.3 + 0.3 i" -i 32 -w 2048 -a 1.0 -e 0.0 0.0 -z 0.75 -g 1.0 -u 30.0
 
 These two sets are in the same *family* of equations, but have a different
 constant *c*. With the `-n cells` option, `julia.py` will render a grid of
