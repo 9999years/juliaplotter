@@ -163,7 +163,7 @@ parser = argparse.ArgumentParser(
 )
 
 parser.add_argument('--fn', '-f', metavar='zₙ₊₁', type=str,
-    default='z**2 + c', help=desc('''
+    default='z^2 + c', help=desc('''
 The Julia set's function f(z) to iterate over values of zₙ. Default: z^2 +
 c'''))
 
