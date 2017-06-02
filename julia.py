@@ -51,7 +51,7 @@ def eval_fn(z, c):
     global fncode
     try:
         return eval(fncode)
-    except (ArithmeticError, ValueError, ZeroDivisionError):
+    except (ArithmeticError, ValueError, OverflowError, ZeroDivisionError):
         # negative number in a log or root probably
         # probably a user error
         return float('nan')
@@ -83,7 +83,7 @@ def clamp(v, lo, hi):
 
 # printing complex numbers
 def signstr(num):
-    if math.sign(num) == -1:
+    if math.sign(num.real) == -1:
         return '-'
     else:
         return '+'
@@ -93,6 +93,60 @@ def strcomplex(num):
     return f'{num.real:8g} {signstr(num.imag)} {abs(num.imag):<8g}i'.strip()
 
 def process_fn(fn):
+    global orig_fn
+    if fn.lower() == 'random':
+        # general case:
+        # https://gist.github.com/9999years/7d9430d08cba96c928b5631293dde33e
+        import random
+
+        def get_coef(imag=True):
+            max_coef = 20
+            coef = (random.random() - 0.5) * max_coef
+            if imag:
+                coef += get_coef(imag=False) * 1j
+            return coef
+
+        def term(deg, variables, consts, imag):
+            deg = random.randint(0, deg)
+            ret = '('
+            var = 'z'
+            coef = get_coef(imag)
+            if deg != 0:
+                ret += f'{var}'
+                if deg > 1:
+                    ret += f'^{deg} + '
+                else:
+                    ret += ' + '
+            ret += f'({coef:.3f}){random.choice(consts)})'
+            return (deg, ret)
+
+        def poly(deg, variables, consts, imag):
+            ret = ""
+            i = 0
+            while i < random.randrange(1, deg):
+                (degtmp, rtmp) = term(deg, variables, consts, imag)
+                i += degtmp
+                ret += rtmp
+            return ret
+
+        def rational(deg, variables, consts, imag):
+            ret = poly(deg, variables, consts, imag)
+            if random.random() > 0.3:
+                ret += f'/({poly(deg * 2, variables, consts, imag)})'
+            return ret
+
+        degree    = 3
+        variables = ['z']
+        consts    = ['c', '']
+        imag      = True
+
+        fn = orig_fn = rational(degree, variables, consts, imag)
+        orig_fn = re.sub(r'j', r'i', fn)
+        print(f'f(z, c) = {orig_fn}')
+        fn = re.sub(r'\^', r'**', fn)
+        fn = re.sub(r'([zc)])([zc(])', r'\1 * \2', fn)
+        return fn
+
     # imaginary numbers are j
     fn = re.sub(r'(\d|\b)i\b', r'\1j', fn)
 
@@ -164,8 +218,9 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument('--fn', '-f', metavar='zₙ₊₁', type=str,
     default='z^2 + c', help=desc('''
-The Julia set's function f(z) to iterate over values of zₙ. Default: z^2 +
-c'''))
+The Julia set's function for iteration. Enter `random` to generate a random
+rational function P(z)/Q(z), where P(z) and Q(z) are polynomials of up to degree
+5.'''))
 
 parser.add_argument('-c', metavar='constant', type=str,
     default='0', help=desc('''
@@ -347,6 +402,8 @@ elif zoom < 0:
 
 # save original function, process to be usable and compile
 orig_fn = fn
+if orig_fn.lower() == 'random':
+    c = 'random'
 fn = process_fn(fn)
 
 try:
