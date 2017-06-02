@@ -12,10 +12,22 @@ import argparse
 import sys
 # making directories, deleting the .ppm after conversion, resolving paths
 import os
+# random rationals
 import random
 
 def warn(*args, **kwargs):
     print('WARNING: ', *args, file=sys.stderr, **kwargs)
+
+def sign(x):
+    return math.copysign(1, x)
+
+math.sign = sign
+
+def signstr(num):
+    if math.sign(num) == -1:
+        return '-'
+    else:
+        return '+'
 
 # set up arguments
 parser = argparse.ArgumentParser(
@@ -44,11 +56,31 @@ consts = args.constants
 imag   = args.imaginary
 
 top = ""
+
+def get_coef(imag):
+    max_coef = 20
+    coef = (rand.random() - 0.5) * max_coef
+    if imag:
+        coef += get_coef(False) * 1j
+    return coef
+
 def term(deg, vars, consts, imag):
     ret = "("
-    return ret
+    deg = rand.randint(0, deg)
+    var = rand.choice(vars)
+    coef = get_coef(imag)
+    ret += (f'({rand.choice(vars)}^{deg}'
+        f'{signstr(coef)} ({coef}){rand.choice(consts)})')
+    return (deg, ret)
 
 def poly(deg, vars, consts, imag):
     ret = ""
-    for i in random.randrange(deg):
-        ret += term(deg, vars, consts, imag)
+    while i < rand.randrange(deg):
+        (degtmp, rtmp) = term(deg, vars, consts, imag)
+        i += degtmp
+        ret += rtmp
+
+def rational(deg, vars, consts, imag):
+    return f'{poly(deg, vars, consts, imag)}/({poly(deg, vars, consts, imag)})'
+
+print(rational(degree, vars, consts, imag))
