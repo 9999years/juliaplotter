@@ -14,6 +14,8 @@ import codecs
 import argparse
 # warnings
 import sys
+# making directories, deleting the .ppm after conversion, resolving paths
+import os
 
 # why arent these in math in the first place?
 # we need them to make user formulae sensible
@@ -224,11 +226,11 @@ parser.add_argument('-o', '--output', metavar='directory', type=str,
         default='./output/', help=desc('''
 Output directory to write images to. Default: ./output/'''))
 
-parser.add_argument('--info-dir-name',
+parser.add_argument('--info-dir',
     metavar='directory', type=str, default='./info/', help=desc('''
-Directory to write information files to, relative to the output directory. Is
-always a first-level directory within the output directory, and changing it will
-probably mess up HTML output. Default: ./info/'''))
+Directory to write information files to, relative to the output directory. If
+it’s not a first-level directory within the output directory, HTML output will
+look funny. Default: ./info/'''))
 
 parser.add_argument('--no-info', action='store_false',
     help='''Don't write the HTML info file.''')
@@ -273,7 +275,7 @@ iterations = args.iterations
 colorscale = args.gradient * iterations / 32
 width      = args.width
 zoom       = args.zoom
-info_dir   = args.info_dir_name
+info_dir   = args.info_dir
 out_dir    = args.output
 no_render  = args.no_render
 fname      = args.filename
@@ -416,6 +418,15 @@ for row in range(cellcount):
 fname = fname or str(int(time.time()))
 # output it for future reference (if needed)
 print('the time is ' + fname)
+
+# make sure the directories we want to write to exist
+# i know i said the info dir has to be in the output dir but if you
+# really wanna be mean and fuck it up that's fine (the css and js links are
+# gonna break though unless you modify starttemplate.html and endtemplate.html)
+if not os.path.exists(f'./{out_dir}/'):
+    os.makedirs(f'./{out_dir}/')
+if not os.path.exists(f'./{out_dir}/{info_dir}/'):
+    os.makedirs(f'./{out_dir}/{info_dir}/')
 
 # write html if requested
 # perhaps interestingly, we do this before actually generating the image
@@ -594,7 +605,6 @@ if convert:
     # convert ppm to png (if requested, by default on)
     # don't load these libraries unless needed
     from subprocess import run
-    import os
     print(f'Converting {fname}.ppm to {fname}.png')
     run(['magick', 'mogrify', '-format', 'png', f'{out_dir}/{fname}.ppm'])
     os.remove(f'{out_dir}/{fname}.ppm')
@@ -603,7 +613,6 @@ if open_html:
     # this works very smoothly, which is nice! thanks python!
     import webbrowser
     from urllib.request import pathname2url
-    import os
     # only used once but boy oh boy does it make the code nicer
     def abspath(filename):
         return 'file:' + pathname2url(os.path.abspath(filename))
