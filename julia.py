@@ -500,6 +500,7 @@ if write_info:
         # in a div.targets if cellcount > 1 with the cli invocation, or just
         # one not in a div.targets if cellcount = 1
         targets = ''
+        end_script = ''
         out.write(template_start.read())
         if cellcount > 1:
             out.write('<map name="juliagrid" id="juliamap">')
@@ -532,12 +533,33 @@ if write_info:
         else:
             out.write('<img ')
             targets = (
-                '<p><code>./julia.py '
+                '<p><code id="invocation">./julia.py '
                 f'-f "{orig_fn}" -c "{strcomplex(cgrid[0][0])}" '
                 f'-i {iterations} -w {width} -a {aspect} '
                 f'-e {args.center[0]} {args.center[1]} -z {zoom} '
                 f'-g {colorscale} -u {cutoff}</code>\n'
+                '<p>click on the render to update the command with a new '
+                'center (<code>-e</code>)'
             )
+            end_script = ('\n<script>\n'
+                f'let xmin = {graph["x"]["min"]},\n'
+                f'dx = {graph["x"]["max"] - graph["x"]["min"]},\n'
+                f'ymax = {graph["y"]["max"]},\n'
+                f'dy = {graph["y"]["max"] - graph["y"]["min"]};')
+            end_script += '''
+(() => {
+    let $ = e => document.getElementById(e),
+        j = $('julia'),
+        o = $('invocation');
+    j.onclick = e => {
+        let x = xmin + dx * e.offsetX / j.clientWidth;
+        let y = ymax - dy * e.offsetY / j.clientHeight;
+        o.innerHTML = o.innerHTML.replace(
+            /-e (-?(\d|\.)+ ){2}/g, '-e '
+            + x.toPrecision(4) + ' ' + y.toPrecision(4) + ' ');
+    };
+})();
+</script>\n'''
 
         def tr(one, two):
             return f'<tr><td>{one}</td><td>{two}</td></tr>'
@@ -560,7 +582,8 @@ if write_info:
             + tr('iterations', iterations)
             + tr('c range', f'{crange:g}')
             + '</table>'
-            + template_end.read())
+            + template_end.read()
+            + end_script)
 
 # if we're just regenerating the info, we're done
 if no_render:

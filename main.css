@@ -47,6 +47,7 @@ img#julia {
 	display: block;
 	margin: 0 auto 1em auto;
 	max-width: 100%;
+	cursor: pointer;
 }
 
 .targets > div {
