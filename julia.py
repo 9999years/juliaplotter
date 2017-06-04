@@ -541,6 +541,9 @@ if write_info:
                 '<p>click on the render to update the command with a new '
                 'center (<code>-e</code>)'
             )
+            # if there's only one cell, make clicking on the image update the
+            # code#invocation tag with new coordinates centered on the click
+            # location in the image
             end_script = ('\n<script>\n'
                 f'let xmin = {graph["x"]["min"]},\n'
                 f'dx = {graph["x"]["max"] - graph["x"]["min"]},\n'
