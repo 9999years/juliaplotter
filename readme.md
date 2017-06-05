@@ -141,7 +141,9 @@ Arg   | Long arg       | What it controls                | Default value
 
 ### `--fn zₙ₊₁, -f zₙ₊₁` (Default: `z^2 + c`)
 
-The Julia set's function for iteration.
+The Julia set's function for iteration. Enter `random` to generate a random
+complex rational function (P(z)/Q(z), where P and Q are complex polynomials of
+maximum degree 3 and 6, respectively).
 
 ### `-c constant` (Default: `0 + 0i`)
 

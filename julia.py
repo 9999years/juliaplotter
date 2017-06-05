@@ -219,8 +219,8 @@ parser = argparse.ArgumentParser(
 parser.add_argument('--fn', '-f', metavar='zₙ₊₁', type=str,
     default=None, help=desc('''
 The Julia set's function for iteration. Enter `random` to generate a random
-rational function P(z)/Q(z), where P(z) and Q(z) are polynomials of up to degree
-5.'''))
+complex rational function P(z)/Q(z), where P(z) and Q(z) are complex polynomials
+of maximum degree 3 and 6, respectively.'''))
 
 parser.add_argument('-c', '--constant', metavar='constant', type=None,
     default='0', help=desc('''
