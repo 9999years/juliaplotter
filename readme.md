@@ -82,16 +82,17 @@ There are two other notable features:
 1. In renders with multiple cells (i.e. with `-n` > 1), clicking on a cell in
    the image will reveal the column, row, c-value, and a command-line invocation
    to render that cell in a larger image (by default to the same width as the
-   render it came from). Note that this uses an image `<map>`, and is thus
-   pixel-dependent; if the render is larger than your screen, it will be resized
-   down, and Javascript will have to be enabled for the image map to resize
-   correctly (easy/possible thanks to David J. Bradshaw’s
+   render it came from). Note that this uses an image `<map>`, and is CSS-only
+   (!) but also pixel-dependent; image-maps don’t resize to fit their respective
+   images, so if the render is larger than your screen, it will be resized down,
+   and Javascript will have to be enabled for the image map to resize correctly
+   (easy/possible thanks to David J. Bradshaw’s
    [`imageMapResize.js`](https://github.com/davidjbradshaw/image-map-resizer/))
-2. In renders with one cell (i.e. with `-n 1` or with `-n` omitted), clicking on
-   the render will update the shown command-line invocation with an updated
-   center value (`-e`). By clicking on a region of the render you would like to
-   see enlarged and increasing the zoom value (`-z`), more detailed renders can
-   easily be created.
+2. In renders with one cell (i.e. with `-n 1` or with `-n` omitted), with
+   Javascript enabled, clicking on the render will update the shown command-line
+   invocation with an updated center value (`-e`). By clicking on a region of
+   the render you would like to see enlarged and increasing the zoom value
+   (`-z`), more detailed renders can easily be created.
 
 ## General Usage
 
