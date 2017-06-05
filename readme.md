@@ -72,13 +72,39 @@ detailed render.
 
 ![Screenshot of HTML output](https://i.imgur.com/DmS6fex.png)
 
+## HTML Output Features
+
+At a glance, the HTML output contains everything you need to recreate a render,
+the easy way (by copying and pasting the given command-line invocation) or the
+hard way (by manually typing in the arguments in the table [do not do this]).
+There are two other notable features:
+
+1. In renders with multiple cells (i.e. with `-n` > 1), clicking on a cell in
+   the image will reveal the column, row, c-value, and a command-line invocation
+   to render that cell in a larger image (by default to the same width as the
+   render it came from). Note that this uses an image `<map>`, and is thus
+   pixel-dependent; if the render is larger than your screen, it will be resized
+   down, and Javascript will have to be enabled for the image map to resize
+   correctly (easy/possible thanks to David J. Bradshaw’s
+   [`imageMapResize.js`](https://github.com/davidjbradshaw/image-map-resizer/))
+2. In renders with one cell (i.e. with `-n 1` or with `-n` omitted), clicking on
+   the render will update the shown command-line invocation with an updated
+   center value (`-e`). By clicking on a region of the render you would like to
+   see enlarged and increasing the zoom value (`-z`), more detailed renders can
+   easily be created.
+
 ## General Usage
 
 ```
-usage: julia.py [-h] [--fn zₙ₊₁] [-c constant] [-a aspect] [-w width]
+usage: julia.py [-h] [-f zₙ₊₁] [-c constant] [-a aspect] [-w width]
                 [-i iterations] [-r c-range] [-e center center]
                 [-n cell count] [-z zoom] [-g gradient speed] [-u escape]
 ```
+
+Note that if `-f` is omitted, it will default to `z^2 + c`, and if `-c` is
+omitted, it will default to `0 + 0i`, but if *both* `-f` and `-c` are omitted,
+`-f` will default to `z^2 + c` and **`-c` will default to `random`** — this may
+be unexpected, but results in interesting-and-unpredictable-by-default renders.
 
 ## Example Renders
 
@@ -97,50 +123,75 @@ The following is an enumeration of most of the useful and common arguments.
 There are a few others and this readme may fall slightly out of date — view the
 most up-to-date and complete list with `-h` or `--help`.
 
-### `--fn zₙ₊₁, -f zₙ₊₁`
+### Quick argument table
+
+Arg   | Long arg       | What it controls                | Default value
+----- | ----------     | ------------------              | --------------
+`-f`  | `--fn`         | Render function zₙ₊₁(z, c)      | `z^2 + c`
+`-c`  | `--constant`   | Render constant (`c` in `-f`)   | `0 + 0i`
+`-a`  | `--aspect`     | Image aspect ratio              | `1.0`
+`-w`  | `--width`      | Image width                     | `500`
+`-i`  | `--iterations` | Fractal iterations              | `32`
+`-r`  | `--c-range`    | Range of c-values when `-n` > 1 | `1.5`
+`-n`  | `--cell-count` | Cell count                      | `1`
+`-e`  | `--center`     | Render center                   | `0 0`
+`-z`  | `--zoom`       | Image zoom                      | `1.0`
+`-s`  | `--silent`     | Info output, shelling out       | Off
+
+### `--fn zₙ₊₁, -f zₙ₊₁` (Default: `z^2 + c`)
 
 The Julia set's function for iteration.
 
-### `-c constant`
+### `-c constant` (Default: `0 + 0i`)
 
 The constant c for the function zₙ₊₁(z, c). Enter `random` to select a random
 value for c.
 
-### `-a aspect, --aspect aspect`
+### `-a aspect, --aspect aspect` (Default: `1`)
 
 The output image's w/h aspect ratio. Ex.: `-a 2` implies an image twice as wide
 as it is tall.
 
-### `-w width, --width width`
+### `-w width, --width width` (Default: `500`)
 
 The output image's width.
 
-### `-i iterations, --iterations iterations`
+### `-i iterations, --iterations iterations` (Default: `32`)
 
 The iterations to calculate the set to.
 
-### `-r c-range, --c-range c-range`
+### `-r c-range, --c-range c-range` (Default: `1.5`)
 
 The range of c values to use — only relevant if the cell count option is used to
 render a grid of sets; the c values for each sets will range from `(c_r -
 crange, c_i - crange·i)` to `(c_r + crange, c_i + crange·i)`, where `c_r` and
 `c_i` are the real and imaginary components of the constant supplied with `-c`.
 
-### `-e cx cy, --center cx cy`
-
-The coordinate the graph is centered around, entered as two floats separated by
-a space. (Not a comma! No parenthesis!)
-
-### `-n cell count, --cell-count cell count`
+### `-n cell count, --cell-count cell count` (Default: `1`)
 
 The number of rows and columns to render. A cell count of 1 will render a single
 set, and other values will render grids of Julia sets. The different values of c
 are determined by `--c-range` or `-r`.
 
-### `-z zoom, --zoom zoom `
+### `-e cx cy, --center cx cy` (Default: `0 0`)
+
+The coordinate the graph is centered around, entered as two floats separated by
+a space. (Not a comma! No parenthesis! Technically two separate arguments
+consumed by one option.)
+
+### `-z zoom, --zoom zoom` (Default: `1`)
 
 How zoomed in the render is. The distance between the center-point and the top /
 bottom of the rendered area is 1 / zoom. Larger values of will produce a more
 zoomed-in image, smaller values (<1) will produce a more zoomed-out image.
+
+### `-s, --silent` (Default: Off)
+
+Don't log info, show progress, convert the .ppm to a .png, or open the file when
+finished. Equivalent to `--no-open --no-convert --no-progress --no-info`.
+
+## License
+
+MIT / Expat; see [license.txt](blob/master/license.txt).
 
 [1]: https://www.imagemagick.org/script/index.php

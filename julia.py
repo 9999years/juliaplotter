@@ -217,12 +217,12 @@ parser = argparse.ArgumentParser(
 )
 
 parser.add_argument('--fn', '-f', metavar='zₙ₊₁', type=str,
-    default='z^2 + c', help=desc('''
+    default=None, help=desc('''
 The Julia set's function for iteration. Enter `random` to generate a random
 rational function P(z)/Q(z), where P(z) and Q(z) are polynomials of up to degree
 5.'''))
 
-parser.add_argument('-c', metavar='constant', type=str,
+parser.add_argument('-c', '--constant', metavar='constant', type=None,
     default='0', help=desc('''
 The constant c for the function zₙ₊₁(z, c). Enter `random` to select a random
 value for c. Default: 0 + 0i'''))
@@ -246,16 +246,17 @@ crange, c_i - crange·i) to (c_r + crange, c_i + crange·i), where c_r and c_i
 are the real and imaginary components of the constant supplied with -c. Default:
 1.5'''))
 
-parser.add_argument('-e', '--center', metavar='center', type=float,
-    default=[0, 0], nargs=2, help=desc('''
-The coordinate the graph is centered around, entered as two floats separated by
-a space. (Not a comma! No parenthesis!) Default: 0 0'''))
-
 parser.add_argument('-n', '--cell-count', metavar='cell count', type=int,
     default=1, help=desc('''
 The number of rows and columns to render. A cell count of 1 will render a
 single set, and other values will render grids of Julia sets. The different
 values of c are determined by --c-range or -r. Default: 1'''))
+
+parser.add_argument('-e', '--center', metavar='center', type=float,
+    default=[0, 0], nargs=2, help=desc('''
+The coordinate the graph is centered around, entered as two floats separated by
+a space. (Not a comma! No parenthesis! It's technically two separate arguments
+consumed by one option.) Default: 0 0'''))
 
 parser.add_argument('-z', '--zoom', metavar='zoom', type=float,
     default=1, help=desc('''
@@ -310,14 +311,15 @@ parser.add_argument('--no-open', action='store_false', help=desc('''
 Don't open HTML output in a browser after completing rendering.'''))
 
 parser.add_argument('-s', '--silent', action='store_true', help=desc('''
-Don't log info, show progress, convert the .ppm to a .png, or open the file.
-Equivalent to `--no-open --no-convert --no-progress --no-info`.'''))
+Don't log info, show progress, convert the .ppm to a .png, or open the file when
+finished rendering.  Equivalent to `--no-open --no-convert --no-progress
+--no-info`.'''))
 
 # parse arguments, extract variables
 args = parser.parse_args()
 
 aspect     = args.aspect
-c          = args.c
+c          = args.constant
 crange     = args.c_range
 cellcount  = args.cell_count
 center     = args.center
@@ -400,6 +402,14 @@ elif zoom < 0:
     neg_warning('zoom')
     zoom = abs(zoom)
 
+if c is None and fn is None:
+    fn = 'z^2 + c'
+    c = 'random'
+elif c is None:
+    c = '0 + 0i'
+elif fn is None:
+    fn = 'z^2 + c'
+
 # save original function, process to be usable and compile
 orig_fn = fn
 if orig_fn.lower() == 'random':
@@ -454,22 +464,21 @@ graph = {
 
 # it seems terrible that there's no better way to initialize a 2d array!
 # anyways this reads backwards and keys are addressed as cgrid[x][y]
-cgrid = [[0 for y in range(cellcount)] for x in range(cellcount)]
+if cellcount is 1:
+    # avoids a divide by zero
+    cgrid = [[c]]
+else:
+    # tick values range from c - crange to c + crange
+    # y axis is inverted so imag and real components arent the same
+    cgrid = [[
+           c.real - crange + 2 * crange * col / (cellcount - 1)
+        + (c.imag + crange - 2 * crange * row / (cellcount - 1))*1j
+        for row in range(cellcount)]
+        for col in range(cellcount)]
 
-# here, we can generate the values inline. neat!
+# when we should step the row / col counters
 yticks = [int((y + 1) * rowheight) for y in range(cellcount - 1)]
 xticks = [int((x + 1) * colwidth ) for x in range(cellcount - 1)]
-
-for row in range(cellcount):
-    localy = c.imag
-    if cellcount != 1:
-        localy += crange - 2 * crange * row / (cellcount - 1)
-
-    for col in range(cellcount):
-        localc = c.real
-        if cellcount != 1:
-            localc += 2 * crange * col / (cellcount - 1) - crange
-        cgrid[col][row] = localc + localy*1j
 
 # unix timestamp is the base filename
 fname = fname or str(int(time.time()))
@@ -488,6 +497,19 @@ if not os.path.exists(f'./{out_dir}/{info_dir}/'):
 # write html if requested
 # perhaps interestingly, we do this before actually generating the image
 if write_info:
+    # we're going to need to output render commands a lot --- abstract it
+    # we need to vary the given c and toggle showing the cell count, so
+    # introduce options for that
+    def generateCLIinvocation(c, showcells=False):
+        global orig_fn, iterations, width, aspect, args, \
+            zoom, colorscale, cutoff, cellcount
+        return ('./julia.py '
+            f'-f "{orig_fn}" -c "{strcomplex(c)}" '
+            f'-i {iterations} -w {width} -a {aspect} '
+            f'-e {args.center[0]} {args.center[1]} -z {zoom} '
+            f'-g {colorscale} -u {cutoff}'
+            + (f' -r {crange:g} -n {cellcount}' if showcells else ''))
+
     # get template information. js and css are just linked to, although they
     # rely on writing the html two directories below this directory (usually
     # in ./output/info)
@@ -521,25 +543,23 @@ if write_info:
                     targets += (
                         f'<div id="{col + 1}-{row + 1}">column {col + 1}, '
                         f'row {row + 1}: c = {strcomplex(cgrid[col][row])}'
-                        '<p><code>./julia.py '
-                        f'-f "{orig_fn}" -c "{strcomplex(cgrid[col][row])}" '
-                        f'-i {iterations} -w {width} -a {aspect} '
-                        f'-e {args.center[0]} {args.center[1]} -z {zoom} '
-                        f'-g {colorscale} -u {cutoff}</code></div>\n'
+                        '<p><code>'
+                        + generateCLIinvocation(cgrid[col][row])
+                        + '</code></div>\n'
                     )
             out.write('</map>\n<img usemap="#juliagrid" ')
             targets += ('</div><p>click on a cell to see the constant and the '
-                'command-line invocation used to render it!')
+                'command-line invocation used to render it!<p>to recreate the '
+                'entire image, use <p><code id="invocation">'
+                + generateCLIinvocation(c, showcells=True)
+                + '</code>')
         else:
             out.write('<img ')
             targets = (
-                '<p><code id="invocation">./julia.py '
-                f'-f "{orig_fn}" -c "{strcomplex(cgrid[0][0])}" '
-                f'-i {iterations} -w {width} -a {aspect} '
-                f'-e {args.center[0]} {args.center[1]} -z {zoom} '
-                f'-g {colorscale} -u {cutoff}</code>\n'
-                '<p>click on the render to update the command with a new '
-                'center (<code>-e</code>)'
+                '<p><code id="invocation">'
+                + generateCLIinvocation(c, showcells=True)
+                + '</code>\n<p>click on the render to update the command with '
+                'a new center (<code>-e</code>)'
             )
             # if there's only one cell, make clicking on the image update the
             # code#invocation tag with new coordinates centered on the click
