@@ -199,7 +199,9 @@ crange, c_i - crange·i)` to `(c_r + crange, c_i + crange·i)`, where `c_r` and
 
 The number of rows and columns to render. A cell count of 1 will render a single
 set, and other values will render grids of Julia sets. The different values of c
-are determined by `--c-range` or `-r`.
+are determined by `--c-range` or `-r`. Note that `-n 4` implies 4 rows and 4
+columns, for a total of 16 actual cells (`--row-and-column-count` was considered
+slightly too verbose), perhaps a mildly confusing name.
 
 ## `-e cx cy, --center cx cy` (Default: `0 0`)
 
