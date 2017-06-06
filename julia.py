@@ -17,6 +17,303 @@ import sys
 # making directories, deleting the .ppm after conversion, resolving paths
 import os
 
+# so i can nicely format my help messages and not worry about weird
+# formatting for the user (sorry!)
+def desc(description):
+    if description[0] == '\n':
+        return description[1:].replace('\n', ' ')
+    else:
+        return description.replace('\n', ' ')
+
+version = '1.0.0'
+
+# set up arguments
+parser = argparse.ArgumentParser(
+    description='Render an arbitrary Julia set or a grid of Julia sets'
+    'with differing constants c from a user-entered equation.',
+    prog='julia.py'
+)
+
+parser.add_argument('--fn', '-f', metavar='zₙ₊₁', type=str,
+    default=None, help=desc('''
+The Julia set's function for iteration. Enter `random` to generate a random
+complex rational function P(z)/Q(z), where P(z) and Q(z) are complex polynomials
+of maximum degree 3 and 6, respectively.'''))
+
+parser.add_argument('-c', '--constant', metavar='constant', type=str,
+    default=None, help=desc('''
+The constant c for the function zₙ₊₁(z, c). Enter `random` to select a random
+value for c. Default: 0 + 0i'''))
+
+parser.add_argument('-a', '--aspect', metavar='aspect', type=float,
+    default=1.0, help=desc('''
+The output image's w/h aspect ratio.  Ex.: -a 2 implies an image twice as wide
+as it is tall. Default: 1.0'''))
+
+parser.add_argument('-w', '--width', metavar='width', type=int,
+    default='500', help='''The output image\'s width.''')
+
+parser.add_argument('-i', '--iterations', metavar='iterations', type=int,
+    default=32, help='The iterations to calculate the set to.')
+
+parser.add_argument('-r', '--c-range', metavar='c-range', type=float,
+    default=1.5, help=desc('''
+The range of c values to use --- only relevant if the cell count option is used
+to render a grid of sets; the c values for each sets will range from (c_r -
+crange, c_i - crange·i) to (c_r + crange, c_i + crange·i), where c_r and c_i
+are the real and imaginary components of the constant supplied with -c. Default:
+1.5'''))
+
+parser.add_argument('-n', '--cell-count', metavar='cell count', type=int,
+    default=1, help=desc('''
+The number of rows and columns to render. A cell count of 1 will render a
+single set, and other values will render grids of Julia sets. The different
+values of c are determined by --c-range or -r. Default: 1'''))
+
+parser.add_argument('-e', '--center', metavar='center', type=float,
+    default=[0, 0], nargs=2, help=desc('''
+The coordinate the graph is centered around, entered as two floats separated by
+a space. (Not a comma! No parenthesis! It's technically two separate arguments
+consumed by one option.) Default: 0 0'''))
+
+parser.add_argument('-z', '--zoom', metavar='zoom', type=float,
+    default=1, help=desc('''
+How zoomed in the render is. The distance between the center-point and the top
+/ bottom of the rendered area is 1 / zoom. Larger values of will produce a more
+zoomed-in image, smaller values (<1) will produce a more zoomed-out image.
+Default: 1'''))
+
+parser.add_argument('-g', '--gradient', metavar='gradient speed', type=float,
+    default=1, help=desc('''
+The plotter colors images by smoothly interpolating the orbit escape times for
+each value of z₀ in the, governed by a sine function. This option adds a
+multiplier within the sine function to increase the oscillation speed, which
+may help to enhance details in lightly colored images. Default: 1.0'''))
+
+parser.add_argument('-u', '--cutoff', '--escape-radius',
+    metavar='escape', type=float, default=30, help=desc('''
+The orbit escape radius --- how large |zₙ| must be before it's considered to
+have diverged. Usually ≈ 30 for Julia sets, 2 for the Mandelbrot set. Default:
+30.0'''))
+
+parser.add_argument('-o', '--output', metavar='directory', type=str,
+        default='./output/', help=desc('''
+Output directory to write images to. Default: ./output/'''))
+
+parser.add_argument('--info-dir',
+    metavar='directory', type=str, default='./info/', help=desc('''
+Directory to write information files to, relative to the output directory. If
+it’s not a first-level directory within the output directory, HTML output will
+look funny. Default: ./info/'''))
+
+parser.add_argument('--no-info', action='store_false',
+    help='''Don't write the HTML info file.''')
+
+parser.add_argument('--no-render', action='store_true', help=desc('''
+Generates appropriate HTML information files but doesn't render an
+image (useful with `--filename` if the info for an image has been lost to
+the sands of time...)'''))
+
+parser.add_argument('--no-progress', action='store_false', help=desc('''
+Don't output progress percentage and finish ETA. May increase
+performance.'''))
+
+parser.add_argument('--filename', metavar='pathspec', type=str, help=desc('''
+Filename base for the output image. Relative to the output directory. Shouldn't
+include extensions. Defaults: The current Unix timestamp'''))
+
+parser.add_argument('--no-convert', action='store_false', help=desc('''
+Don't shell out to `magick` to convert the .ppm to a .png after rendering.'''))
+
+parser.add_argument('--no-open', action='store_false', help=desc('''
+Don't open HTML output in a browser after completing rendering.'''))
+
+parser.add_argument('-s', '--silent', action='store_true', help=desc('''
+Don't log info, show progress, convert the .ppm to a .png, or open the file when
+finished rendering.  Equivalent to `--no-open --no-convert --no-progress
+--no-info`.'''))
+
+argparser.add_argument('--license', action='store_true',
+    help='Print license information (MIT) and exit.')
+
+argparser.add_argument('-v', '--version', action='version',
+    version=f'%(prog)s {version}')
+
+# parse arguments, extract variables
+args = parser.parse_args()
+
+if args.license:
+    print('''Copyright (c) 2017 Rebecca Turner
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the “Software”), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.''')
+    exit()
+
+aspect     = args.aspect
+c          = args.constant
+crange     = args.c_range
+cellcount  = args.cell_count
+center     = args.center
+cutoff     = args.cutoff
+fn         = args.fn
+iterations = args.iterations
+# correct coloring for iterations so that coloring is same at different
+# iterations. stumbled upon this fix by accident (guessing), no clue why it
+# works honestly
+colorscale = args.gradient * iterations / 32
+width      = args.width
+zoom       = args.zoom
+info_dir   = args.info_dir
+out_dir    = args.output
+no_render  = args.no_render
+fname      = args.filename
+show_prog  = args.no_progress
+write_info = args.no_info
+convert    = args.no_convert
+open_html  = args.no_open
+
+if args.silent:
+    show_prog = write_info = convert = open_html = False
+
+def zero_warning(var, extra=''):
+    warn(var + ' is ZERO. Ignoring. ' + extra)
+
+def neg_warning(var, extra=''):
+    warn(var + ' is NEGATIVE.'
+        + 'This makes no sense, using absolute value instead. ' + extra)
+
+# validate arguments to prevent weird nonsense / errors
+if aspect == 0:
+    zero_warning('aspect')
+    aspect = 1
+elif aspect < 0:
+    neg_warning('aspect')
+    aspect = abs(aspect)
+
+if crange == 0:
+    zero_warning('c range', extra='Rendering only one cell.')
+    crange = 1
+    cellcount = 1
+elif crange < 0:
+    neg_warning('c range')
+    crange = abs(crange)
+
+if cellcount == 0:
+    zero_warning('cell count')
+    cellcount = 1
+elif cellcount < 0:
+    neg_warning('cell count')
+    cellcount = abs(cellcount)
+
+if cutoff == 0:
+    zero_warning('escape radius')
+    cutoff = 30
+elif cutoff < 0:
+    neg_warning('escape radius')
+    cutoff = abs(cutoff)
+
+if iterations == 0:
+    zero_warning('iterations')
+    iterations = 1
+elif iterations < 0:
+    neg_warning('iterations')
+    iterations = abs(iterations)
+
+if colorscale == 0:
+    zero_warning('gradient scale')
+    colorscale = iterations / 32
+elif colorscale < 0:
+    neg_warning('gradient scale')
+    colorscale = abs(colorscale)
+
+if zoom == 0:
+    zero_warning('zoom')
+    zoom = 1
+elif zoom < 0:
+    neg_warning('zoom')
+    zoom = abs(zoom)
+
+if c is None and fn is None:
+    fn = 'z^2 + c'
+    c = 'random'
+elif c is None:
+    c = '0 + 0i'
+elif fn is None:
+    fn = 'z^2 + c'
+
+def parsecomplex(num):
+    num = num.replace(' ', '')
+    num = num.replace('i', 'j')
+    return complex(num)
+
+# if the user wants a random c, generate one and tell them about it
+if c.lower() == 'random':
+    from random import random
+    c = 2 * random() - 1 + 2j * random() - 1j
+    print('c = {}'.format(strcomplex(c)))
+else:
+    # otherwise, parse the user's c and store in `c`
+    c = parsecomplex(c)
+
+# aspect = width / height ⇒ height = width / aspect
+# should be an int so the iteration stuff doesn't explode
+height = int(width / aspect)
+# more accuracy if we don't int-ify these (probably)
+rowheight = height / cellcount
+colwidth  = width  / cellcount
+
+# two args for center variables
+c_x = center[0]
+c_y = center[1]
+
+# so that a higher zoom = a smaller graph
+spread = 1 / zoom
+
+graph = {
+    'x': {
+        # make sure the graph isn't stretched
+        'min': c_x - spread * aspect,
+        'max': c_x + spread * aspect,
+        'c':   c_x
+    },
+    'y': {
+        'min': c_y - spread,
+        'max': c_y + spread,
+        'c':   c_y
+    }
+}
+
+# keys are addressed as cgrid[x][y] (cgrid[col][row] if you prefer)
+# the else clause avoids a divide by zero
+# tick values range from c - crange to c + crange
+# y axis is inverted so imag and real components arent the same
+cgrid = [[
+    c.real - crange + 2 * crange * col / (cellcount - 1)
+    + (c.imag + crange - 2 * crange * row / (cellcount - 1))*1j
+    for row in range(cellcount)]
+    for col in range(cellcount)] if cellcount is 1 else [[c]]
+
+# when we should step the row / col counters
+yticks = [int((y + 1) * rowheight) for y in range(cellcount - 1)]
+xticks = [int((x + 1) * colwidth ) for x in range(cellcount - 1)]
+
+# bunch of setup before processing user function
+
 # why arent these in math in the first place?
 # we need them to make user formulae sensible
 # maybe i should make a pull request...
@@ -121,7 +418,7 @@ def process_fn(fn):
             return (deg, ret)
 
         def poly(deg, variables, consts, imag):
-            ret = ""
+            ret = ''
             i = 0
             while i < random.randrange(1, deg):
                 (degtmp, rtmp) = term(deg, variables, consts, imag)
@@ -141,9 +438,9 @@ def process_fn(fn):
         imag      = True
 
         fn = orig_fn = rational(degree, variables, consts, imag)
-        orig_fn = re.sub(r'j', r'i', fn)
+        orig_fn = fn.replace('j', 'i')
         print(f'f(z, c) = {orig_fn}')
-        fn = re.sub(r'\^', r'**', fn)
+        fn = fn.replace('^', '**')
         fn = re.sub(r'([zc)])([zc(])', r'\1 * \2', fn)
         return fn
 
@@ -151,12 +448,12 @@ def process_fn(fn):
     fn = re.sub(r'(\d|\b)i\b', r'\1j', fn)
 
     # ln = log
-    fn = re.sub('ln', 'log', fn)
+    fn = fn.replace('ln', 'log')
 
     # when you type (x + 2)(x - 2) you probably meant to multiply them right?
     fn = re.sub(r'\)\s*\(', r')*(', fn)
 
-    fn = re.sub('π', 'pi', fn)
+    fn = fn.replace('π', 'pi')
 
     fn = re.sub(r'(?<!cmath\.)\b(pi|e|tau|inf|infj|nan|nanj)\b',
         r'cmath.\1', fn)
@@ -184,7 +481,7 @@ def process_fn(fn):
     fn = re.sub(r'\)\s*(\w)', r') * \1', fn)
 
     # replace ^ with **
-    fn = re.sub(r'\^', r'**', fn)
+    fn = fn.replace('^', '**')
 
     z = 0
     c = 0
@@ -202,214 +499,6 @@ def process_fn(fn):
 
     return fn
 
-# so i can nicely format my help messages and not worry about weird
-# formatting for the user (sorry!)
-def desc(description):
-    if description[0] == '\n':
-        return description[1:].replace('\n', ' ')
-    else:
-        return description.replace('\n', ' ')
-
-# set up arguments
-parser = argparse.ArgumentParser(
-    description='Render an arbitrary Julia set or a grid of Julia sets'
-    'with differing constants c from a user-entered equation.'
-)
-
-parser.add_argument('--fn', '-f', metavar='zₙ₊₁', type=str,
-    default=None, help=desc('''
-The Julia set's function for iteration. Enter `random` to generate a random
-complex rational function P(z)/Q(z), where P(z) and Q(z) are complex polynomials
-of maximum degree 3 and 6, respectively.'''))
-
-parser.add_argument('-c', '--constant', metavar='constant', type=None,
-    default='0', help=desc('''
-The constant c for the function zₙ₊₁(z, c). Enter `random` to select a random
-value for c. Default: 0 + 0i'''))
-
-parser.add_argument('-a', '--aspect', metavar='aspect', type=float,
-    default=1.0, help=desc('''
-The output image's w/h aspect ratio.  Ex.: -a 2 implies an image twice as wide
-as it is tall. Default: 1.0'''))
-
-parser.add_argument('-w', '--width', metavar='width', type=int,
-    default='500', help='''The output image\'s width.''')
-
-parser.add_argument('-i', '--iterations', metavar='iterations', type=int,
-    default=32, help='The iterations to calculate the set to.')
-
-parser.add_argument('-r', '--c-range', metavar='c-range', type=float,
-    default=1.5, help=desc('''
-The range of c values to use --- only relevant if the cell count option is used
-to render a grid of sets; the c values for each sets will range from (c_r -
-crange, c_i - crange·i) to (c_r + crange, c_i + crange·i), where c_r and c_i
-are the real and imaginary components of the constant supplied with -c. Default:
-1.5'''))
-
-parser.add_argument('-n', '--cell-count', metavar='cell count', type=int,
-    default=1, help=desc('''
-The number of rows and columns to render. A cell count of 1 will render a
-single set, and other values will render grids of Julia sets. The different
-values of c are determined by --c-range or -r. Default: 1'''))
-
-parser.add_argument('-e', '--center', metavar='center', type=float,
-    default=[0, 0], nargs=2, help=desc('''
-The coordinate the graph is centered around, entered as two floats separated by
-a space. (Not a comma! No parenthesis! It's technically two separate arguments
-consumed by one option.) Default: 0 0'''))
-
-parser.add_argument('-z', '--zoom', metavar='zoom', type=float,
-    default=1, help=desc('''
-How zoomed in the render is. The distance between the center-point and the top
-/ bottom of the rendered area is 1 / zoom. Larger values of will produce a more
-zoomed-in image, smaller values (<1) will produce a more zoomed-out image.
-Default: 1'''))
-
-parser.add_argument('-g', '--gradient', metavar='gradient speed', type=float,
-    default=1, help=desc('''
-The plotter colors images by smoothly interpolating the orbit escape times for
-each value of z₀ in the, governed by a sine function. This option adds a
-multiplier within the sine function to increase the oscillation speed, which
-may help to enhance details in lightly colored images. Default: 1.0'''))
-
-parser.add_argument('-u', '--cutoff', '--escape-radius',
-    metavar='escape', type=float, default=30, help=desc('''
-The orbit escape radius --- how large |zₙ| must be before it's considered to
-have diverged. Usually ≈ 30 for Julia sets, 2 for the Mandelbrot set. Default:
-30.0'''))
-
-parser.add_argument('-o', '--output', metavar='directory', type=str,
-        default='./output/', help=desc('''
-Output directory to write images to. Default: ./output/'''))
-
-parser.add_argument('--info-dir',
-    metavar='directory', type=str, default='./info/', help=desc('''
-Directory to write information files to, relative to the output directory. If
-it’s not a first-level directory within the output directory, HTML output will
-look funny. Default: ./info/'''))
-
-parser.add_argument('--no-info', action='store_false',
-    help='''Don't write the HTML info file.''')
-
-parser.add_argument('--no-render', action='store_true', help=desc('''
-Generates appropriate HTML information files but doesn't render an
-image (useful with `--filename` if the info for an image has been lost to
-the sands of time...)'''))
-
-parser.add_argument('--no-progress', action='store_false', help=desc('''
-Don't output progress percentage and finish ETA. May increase
-performance.'''))
-
-parser.add_argument('--filename', metavar='pathspec', type=str, help=desc('''
-Filename base for the output image. Relative to the output directory. Shouldn't
-include extensions. Defaults: The current Unix timestamp'''))
-
-parser.add_argument('--no-convert', action='store_false', help=desc('''
-Don't shell out to `magick` to convert the .ppm to a .png after rendering.'''))
-
-parser.add_argument('--no-open', action='store_false', help=desc('''
-Don't open HTML output in a browser after completing rendering.'''))
-
-parser.add_argument('-s', '--silent', action='store_true', help=desc('''
-Don't log info, show progress, convert the .ppm to a .png, or open the file when
-finished rendering.  Equivalent to `--no-open --no-convert --no-progress
---no-info`.'''))
-
-# parse arguments, extract variables
-args = parser.parse_args()
-
-aspect     = args.aspect
-c          = args.constant
-crange     = args.c_range
-cellcount  = args.cell_count
-center     = args.center
-cutoff     = args.cutoff
-fn         = args.fn
-iterations = args.iterations
-# correct coloring for iterations so that coloring is same at different
-# iterations. stumbled upon this fix by accident (guessing), no clue why it
-# works honestly
-colorscale = args.gradient * iterations / 32
-width      = args.width
-zoom       = args.zoom
-info_dir   = args.info_dir
-out_dir    = args.output
-no_render  = args.no_render
-fname      = args.filename
-show_prog  = args.no_progress
-write_info = args.no_info
-convert    = args.no_convert
-open_html  = args.no_open
-
-if args.silent:
-    show_prog = write_info = convert = open_html = False
-
-def zero_warning(var, extra=''):
-    warn(var + ' is ZERO. Ignoring. ' + extra)
-
-def neg_warning(var, extra=''):
-    warn(var + ' is NEGATIVE.'
-        + 'This makes no sense, using absolute value instead. ' + extra)
-
-# validate arguments to prevent weird nonsense / errors
-if aspect == 0:
-    zero_warning('aspect')
-    aspect = 1
-elif aspect < 0:
-    neg_warning('aspect')
-    aspect = abs(aspect)
-
-if crange == 0:
-    zero_warning('c range', extra='Rendering only one cell.')
-    crange = 1
-    cellcount = 1
-elif crange < 0:
-    neg_warning('c range')
-    crange = abs(crange)
-
-if cellcount == 0:
-    zero_warning('cell count')
-    cellcount = 1
-elif cellcount < 0:
-    neg_warning('cell count')
-    cellcount = abs(cellcount)
-
-if cutoff == 0:
-    zero_warning('escape radius')
-    cutoff = 30
-elif cutoff < 0:
-    neg_warning('escape radius')
-    cutoff = abs(cutoff)
-
-if iterations == 0:
-    zero_warning('iterations')
-    iterations = 1
-elif iterations < 0:
-    neg_warning('iterations')
-    iterations = abs(iterations)
-
-if colorscale == 0:
-    zero_warning('gradient scale')
-    colorscale = iterations / 32
-elif colorscale < 0:
-    neg_warning('gradient scale')
-    colorscale = abs(colorscale)
-
-if zoom == 0:
-    zero_warning('zoom')
-    zoom = 1
-elif zoom < 0:
-    neg_warning('zoom')
-    zoom = abs(zoom)
-
-if c is None and fn is None:
-    fn = 'z^2 + c'
-    c = 'random'
-elif c is None:
-    c = '0 + 0i'
-elif fn is None:
-    fn = 'z^2 + c'
-
 # save original function, process to be usable and compile
 orig_fn = fn
 if orig_fn.lower() == 'random':
@@ -422,63 +511,6 @@ except (SyntaxError, ValueError):
     raise Exception('Invalid function. This might be my fault or yours.\n'
         f'Processed equation: {fn}')
     exit()
-
-# if the user wants a random c, generate one and tell them about it
-if c.lower() == 'random':
-    from random import random
-    c = 2 * random() - 1 + 2j * random() - 1j
-    print('c = {}'.format(strcomplex(c)))
-else:
-    # otherwise, parse the user's c and store in `c`
-    c = re.sub('\s', '', c)
-    c = re.sub('i', 'j', c)
-    c = complex(c)
-
-# aspect = width / height ⇒ height = width / aspect
-# should be an int so the iteration stuff doesn't explode
-height = int(width / aspect)
-# more accuracy if we don't int-ify these (probably)
-rowheight = height / cellcount
-colwidth  = width  / cellcount
-
-# two args for center variables
-c_x = center[0]
-c_y = center[1]
-
-# so that a higher zoom = a smaller graph
-spread = 1 / zoom
-
-graph = {
-    'x': {
-        # make sure the graph isn't stretched
-        'min': c_x - spread * aspect,
-        'max': c_x + spread * aspect,
-        'c':   c_x
-    },
-    'y': {
-        'min': c_y - spread,
-        'max': c_y + spread,
-        'c':   c_y
-    }
-}
-
-# it seems terrible that there's no better way to initialize a 2d array!
-# anyways this reads backwards and keys are addressed as cgrid[x][y]
-if cellcount is 1:
-    # avoids a divide by zero
-    cgrid = [[c]]
-else:
-    # tick values range from c - crange to c + crange
-    # y axis is inverted so imag and real components arent the same
-    cgrid = [[
-           c.real - crange + 2 * crange * col / (cellcount - 1)
-        + (c.imag + crange - 2 * crange * row / (cellcount - 1))*1j
-        for row in range(cellcount)]
-        for col in range(cellcount)]
-
-# when we should step the row / col counters
-yticks = [int((y + 1) * rowheight) for y in range(cellcount - 1)]
-xticks = [int((x + 1) * colwidth ) for x in range(cellcount - 1)]
 
 # unix timestamp is the base filename
 fname = fname or str(int(time.time()))
