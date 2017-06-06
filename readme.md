@@ -8,27 +8,28 @@ comfortable command-line interface, enabled-by-default conversion to `.png`
 
 # Table of Contents
 
-1. [Python Julia Plotter](#python-julia-plotter)
-    1. [Why?](#why)
-        1. [Low memory requirements](#low-memory-requirements)
-        2. [Flexibility](#flexibility)
-        3. [Grid rendering](#grid-rendering)
-    1. [HTML Output Features](#html-output-features)
-    2. [General Usage](#general-usage)
-    3. [Example Renders](#example-renders)
-    4. [Arguments and options](#arguments-and-options)
-        1. [Quick argument table](#quick-argument-table)
-        2. [--fn z?????????, -f z????????? (Default: z^2 + c)](#--fn-z--f-z-default-z2--c)
-        3. [-c constant (Default: 0 + 0i)](#-c-constant-default-0--0i)
-        4. [-a aspect, --aspect aspect (Default: 1)](#-a-aspect---aspect-aspect-default-1)
-        5. [-w width, --width width (Default: 500)](#-w-width---width-width-default-500)
-        6. [-i iterations, --iterations iterations (Default: 32)](#-i-iterations---iterations-iterations-default-32)
-        7. [-r c-range, --c-range c-range (Default: 1.5)](#-r-c-range---c-range-c-range-default-15)
-        8. [-n cell count, --cell-count cell count (Default: 1)](#-n-cell-count---cell-count-cell-count-default-1)
-        9. [-e cx cy, --center cx cy (Default: 0 0)](#-e-cx-cy---center-cx-cy-default-0-0)
-        10. [-z zoom, --zoom zoom (Default: 1)](#-z-zoom---zoom-zoom-default-1)
-        11. [-s, --silent (Default: Off)](#-s---silent-default-off)
-    4. [License](#license)
+* [Python Julia Plotter](#python-julia-plotter)
+* [Table of Contents](#table-of-contents)
+* [Why?](#why)
+    * [Low memory requirements](#low-memory-requirements)
+    * [Flexibility](#flexibility)
+    * [Grid rendering](#grid-rendering)
+* [HTML Output Features](#html-output-features)
+* [General Usage](#general-usage)
+* [Example Renders](#example-renders)
+* [Arguments and options](#arguments-and-options)
+    * [Quick argument table](#quick-argument-table)
+    * [-f zₙ₊₁, --fn zₙ₊₁ (Default: z^2 + c)](#-f-z%E2%82%99---fn-z%E2%82%99-default-z2--c)
+    * [-c constant (Default: 0 + 0i)](#-c-constant-default-0--0i)
+    * [-a aspect, --aspect aspect (Default: 1)](#-a-aspect---aspect-aspect-default-1)
+    * [-w width, --width width (Default: 500)](#-w-width---width-width-default-500)
+    * [-i iterations, --iterations iterations (Default: 32)](#-i-iterations---iterations-iterations-default-32)
+    * [-r c-range, --c-range c-range (Default: 1.5)](#-r-c-range---c-range-c-range-default-15)
+    * [-n cell count, --cell-count cell count (Default: 1)](#-n-cell-count---cell-count-cell-count-default-1)
+    * [-e cx cy, --center cx cy (Default: 0 0)](#-e-cx-cy---center-cx-cy-default-0-0)
+    * [-z zoom, --zoom zoom (Default: 1)](#-z-zoom---zoom-zoom-default-1)
+    * [-s, --silent (Default: Off)](#-s---silent-default-off)
+* [License](#license)
 
 # Why?
 
@@ -150,20 +151,20 @@ most up-to-date and complete list with `-h` or `--help`.
 
 ## Quick argument table
 
-Arg   | Long arg       | What it controls                | Default value
------ | ----------     | ------------------              | --------------
-`-f`  | `--fn`         | Render function zₙ₊₁(z, c)      | `z^2 + c`
-`-c`  | `--constant`   | Render constant (`c` in `-f`)   | `0 + 0i`
-`-a`  | `--aspect`     | Image aspect ratio              | `1.0`
-`-w`  | `--width`      | Image width                     | `500`
-`-i`  | `--iterations` | Fractal iterations              | `32`
-`-r`  | `--c-range`    | Range of c-values when `-n` > 1 | `1.5`
-`-n`  | `--cell-count` | Cell count                      | `1`
-`-e`  | `--center`     | Render center                   | `0 0`
-`-z`  | `--zoom`       | Image zoom                      | `1.0`
-`-s`  | `--silent`     | Info output, shelling out       | Off
+Arg   | Long arg       | What it controls                      | Default value
+----- | ----------     | ------------------                    | --------------
+`-f`  | `--fn`         | [Render function zₙ₊₁(z, c)][a1]      | `z^2 + c`
+`-c`  | `--constant`   | [Render constant (`c` in `-f`)][a2]   | `0 + 0i`
+`-a`  | `--aspect`     | [Image aspect ratio][a3]              | `1.0`
+`-w`  | `--width`      | [Image width][a4]                     | `500`
+`-i`  | `--iterations` | [Fractal iterations][a5]              | `32`
+`-r`  | `--c-range`    | [Range of c-values when `-n` > 1][a6] | `1.5`
+`-n`  | `--cell-count` | [Cell count][a7]                      | `1`
+`-e`  | `--center`     | [Render center][a8]                   | `0 0`
+`-z`  | `--zoom`       | [Image zoom][a9]                      | `1.0`
+`-s`  | `--silent`     | [Info output, shelling out][a10]      | Off
 
-## `--fn zₙ₊₁, -f zₙ₊₁` (Default: `z^2 + c`)
+## `-f zₙ₊₁, --fn zₙ₊₁` (Default: `z^2 + c`)
 
 The Julia set's function for iteration. Enter `random` to generate a random
 complex rational function (P(z)/Q(z), where P and Q are complex polynomials of
@@ -222,3 +223,14 @@ finished. Equivalent to `--no-open --no-convert --no-progress --no-info`.
 MIT / Expat; see [license.txt](blob/master/license.txt).
 
 [1]: https://www.imagemagick.org/script/index.php
+
+[a1]: #-f-z%E2%82%99---fn-z%E2%82%99-default-z2--c
+[a2]: #-c-constant-default-0--0i
+[a3]: #-a-aspect---aspect-aspect-default-1
+[a4]: #-w-width---width-width-default-500
+[a5]: #-i-iterations---iterations-iterations-default-32
+[a6]: #-r-c-range---c-range-c-range-default-15
+[a7]: #-n-cell-count---cell-count-cell-count-default-1
+[a8]: #-e-cx-cy---center-cx-cy-default-0-0
+[a9]: #-z-zoom---zoom-zoom-default-1
+[a10]: #-s---silent-default-off
