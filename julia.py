@@ -261,6 +261,21 @@ def parsecomplex(num):
     num = num.replace('i', 'j')
     return complex(num)
 
+def sign(x):
+    return math.copysign(1, x)
+
+math.sign = sign
+
+# printing complex numbers
+def signstr(num):
+    if math.sign(num.real) == -1:
+        return '-'
+    else:
+        return '+'
+
+def strcomplex(num):
+    return f'{num.real:8g} {signstr(num.imag)} {abs(num.imag):<8g}i'.strip()
+
 # if the user wants a random c, generate one and tell them about it
 if c.lower() == 'random':
     from random import random
@@ -306,7 +321,7 @@ cgrid = [[
     c.real - crange + 2 * crange * col / (cellcount - 1)
     + (c.imag + crange - 2 * crange * row / (cellcount - 1))*1j
     for row in range(cellcount)]
-    for col in range(cellcount)] if cellcount is 1 else [[c]]
+    for col in range(cellcount)] if cellcount is not 1 else [[c]]
 
 # when we should step the row / col counters
 yticks = [int((y + 1) * rowheight) for y in range(cellcount - 1)]
@@ -326,13 +341,9 @@ def csc(x):
 def cot(x):
     return 1 / math.tan(x)
 
-def sign(x):
-    return math.copysign(1, x)
-
 math.sec = sec
 math.csc = csc
 math.cot = cot
-math.sign = sign
 
 # https://stackoverflow.com/a/14981125/5719760
 # sys module for stderr
@@ -378,17 +389,7 @@ def stgY(y):
 def clamp(v, lo, hi):
     return max(min(v, hi), lo)
 
-# printing complex numbers
-def signstr(num):
-    if math.sign(num.real) == -1:
-        return '-'
-    else:
-        return '+'
-
 #something like 0.0 - 3.2i
-def strcomplex(num):
-    return f'{num.real:8g} {signstr(num.imag)} {abs(num.imag):<8g}i'.strip()
-
 def process_fn(fn):
     global orig_fn
     if fn.lower() == 'random':
