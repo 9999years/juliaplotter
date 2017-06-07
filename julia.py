@@ -133,10 +133,10 @@ Don't log info, show progress, convert the .ppm to a .png, or open the file when
 finished rendering.  Equivalent to `--no-open --no-convert --no-progress
 --no-info`.'''))
 
-argparser.add_argument('--license', action='store_true',
+parser.add_argument('--license', action='store_true',
     help='Print license information (MIT) and exit.')
 
-argparser.add_argument('-v', '--version', action='version',
+parser.add_argument('-v', '--version', action='version',
     version=f'%(prog)s {version}')
 
 # parse arguments, extract variables
